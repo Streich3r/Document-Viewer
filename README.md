@@ -1,11 +1,11 @@
 
-# Calculator Webseite
+# Document Viewer
 
-Simple Calculator for offline using
+Simple Viewer for multiple formats
 
 ## Features
 
 - Offline-ready
 - touch/mouse/keyboard-ready
-- Copy-ready
+- PDF, DOCX, XLSX, PPTX, ODF
 - Dark Mode
