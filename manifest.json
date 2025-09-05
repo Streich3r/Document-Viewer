@@ -3,8 +3,8 @@
   "short_name": "Viewer",
   "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#0b0d12",
-  "theme_color": "#0b0d12",
+  "background_color": "#000713",
+  "theme_color": "#000713",
   "icons": [
     {
       "src": "icon-192.png",
