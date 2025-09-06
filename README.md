@@ -7,5 +7,6 @@ Simple Viewer for multiple formats
 
 - Offline-ready
 - touch/mouse/keyboard-ready
+- PWA-ready
 - PDF, DOCX, XLSX, PPTX, ODF
 - Dark Mode
