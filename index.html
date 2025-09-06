@@ -8,18 +8,17 @@
 body { font-family: sans-serif; padding: 20px; background-color: #0b0d12; color: #fff; }
 button { margin: 5px; padding: 10px 15px; font-size: 1rem; background-color: #1f222d; color: #fff; border: 1px solid #444; border-radius: 5px; cursor: pointer; }
 button:hover { background-color: #2a2e3c; }
-#viewer { margin-top: 20px; border: 1px solid #444; padding: 10px; overflow-x:auto; background-color: #1c1f28; color: #fff; min-height: 200px; text-align:center; }
+#viewer { margin-top: 20px; border: 1px solid #444; padding: 10px; background-color: #1c1f28; color: #fff; min-height: 200px; overflow:auto; }
 canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 .slide { display:none; }
 .slide img { max-width: 100%; height: auto; margin: auto; }
 .nav-buttons { text-align: center; margin-top: 10px; }
-.nav-buttons button { padding: 10px 20px; font-size: 1rem; }
 </style>
 </head>
 <body>
 <h2>Offline Document Viewer</h2>
 
-<!-- Buttons -->
+<!-- File Inputs -->
 <input type="file" id="pdfFile" accept=".pdf" style="display:none"/>
 <button onclick="document.getElementById('pdfFile').click()">PDF öffnen</button>
 
@@ -41,10 +40,9 @@ canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
     <button id="nextSlide">Weiter →</button>
 </div>
 
-<!-- Bibliotheken -->
+<!-- Libs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.12.313/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.12.313/pdf.worker.min.js"></script>
-<script src="https://unpkg.com/docx-preview@0.3.1/dist/docx-preview.min.js"></script>
+<script src="https://unpkg.com/docx-preview@0.3.1/dist/docx-preview.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://webodf.org/webodf.js"></script>
@@ -52,118 +50,82 @@ canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 <script>
 const viewer = document.getElementById('viewer');
 const pptNav = document.getElementById('pptNav');
-let slides = [];
-let currentSlide = 0;
+let slides = [], currentSlide = 0;
 
-function showSlide(index) {
-    if(slides.length === 0) return;
-    slides.forEach((s,i)=> s.style.display = i===index ? 'block' : 'none');
-}
-function showError(msg){
-    viewer.innerHTML = `<p style="color:#f88">⚠️ Fehler: ${msg}</p>`;
-}
+function showSlide(i){ slides.forEach((s,x)=>s.style.display = (i===x?'block':'none')); }
+function showError(msg){ viewer.innerHTML = `<p style="color:#f88">⚠️ ${msg}</p>`; }
 
 /* --- PDF --- */
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.12.313/pdf.worker.min.js";
-document.getElementById('pdfFile').addEventListener('change', async e => {
-    try {
-        const file = e.target.files[0]; if(!file) return;
-        const data = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({data}).promise;
-        const page = await pdf.getPage(1);
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const viewport = page.getViewport({scale: 1.5});
-        canvas.width = viewport.width; canvas.height = viewport.height;
-        await page.render({canvasContext: ctx, viewport}).promise;
-        viewer.innerHTML = ''; viewer.appendChild(canvas);
-        pptNav.style.display = 'none';
-    } catch(err){ showError("PDF konnte nicht angezeigt werden: " + err.message); }
+document.getElementById('pdfFile').addEventListener('change', async e=>{
+  try {
+    const buf = await e.target.files[0].arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+    const page = await pdf.getPage(1);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const vp = page.getViewport({scale:1.2});
+    canvas.width = vp.width; canvas.height = vp.height;
+    await page.render({canvasContext:ctx, viewport:vp}).promise;
+    viewer.innerHTML=''; viewer.appendChild(canvas); pptNav.style.display='none';
+  } catch(err){ showError("PDF Fehler: "+err.message); }
 });
 
 /* --- DOCX --- */
-document.getElementById('docxFile').addEventListener('change', async e => {
-    try {
-        const file = e.target.files[0]; if(!file) return;
-        const buffer = await file.arrayBuffer();
-        viewer.innerHTML = '';
-        window.docx.renderAsync(buffer, viewer);
-        pptNav.style.display = 'none';
-    } catch(err){ showError("DOCX konnte nicht angezeigt werden: " + err.message); }
+document.getElementById('docxFile').addEventListener('change', async e=>{
+  try {
+    const buf = await e.target.files[0].arrayBuffer();
+    viewer.innerHTML='';
+    const dp = new window.DocxPreview(); 
+    dp.renderAsync(buf, viewer);
+    pptNav.style.display='none';
+  } catch(err){ showError("DOCX Fehler: "+err.message); }
 });
 
 /* --- XLSX --- */
-document.getElementById('xlsxFile').addEventListener('change', async e => {
-    try {
-        const file = e.target.files[0]; if(!file) return;
-        const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, {type:"array"});
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        viewer.innerHTML = XLSX.utils.sheet_to_html(sheet);
-        pptNav.style.display = 'none';
-    } catch(err){ showError("Excel konnte nicht angezeigt werden: " + err.message); }
+document.getElementById('xlsxFile').addEventListener('change', async e=>{
+  try {
+    const buf = await e.target.files[0].arrayBuffer();
+    const wb = XLSX.read(buf,{type:"array"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    viewer.innerHTML = XLSX.utils.sheet_to_html(sheet);
+    pptNav.style.display='none';
+  } catch(err){ showError("XLSX Fehler: "+err.message); }
 });
 
 /* --- PPTX --- */
-document.getElementById('pptxFile').addEventListener('change', async e => {
-    try {
-        const file = e.target.files[0]; if(!file) return;
-        const buffer = await file.arrayBuffer();
-        const zip = await JSZip.loadAsync(buffer);
-        viewer.innerHTML = ''; slides = [];
-
-        const slideFiles = Object.keys(zip.files).filter(f => f.startsWith('ppt/slides/slide') && f.endsWith('.xml')).sort();
-        for (let slideFile of slideFiles) {
-            const slideXml = await zip.files[slideFile].async('text');
-
-            // Beziehungen (Bilder) laden
-            const relsFile = slideFile.replace("slides/", "slides/_rels/") + ".rels";
-            let rels = {};
-            if(zip.files[relsFile]) {
-                const relsXml = await zip.files[relsFile].async('text');
-                const matches = [...relsXml.matchAll(/Id="(rId\d+)" Type="[^"]*image" Target="([^"]+)"/g)];
-                matches.forEach(m => { rels[m[1]] = m[2]; });
-            }
-
-            const blips = [...slideXml.matchAll(/<a:blip r:embed="(rId\d+)"/g)];
-            const div = document.createElement('div'); div.className = 'slide';
-
-            if(blips.length > 0) {
-                for (let b of blips) {
-                    const rId = b[1]; const target = rels[rId];
-                    if(target && zip.files["ppt/" + target]) {
-                        const blob = await zip.files["ppt/" + target].async("blob");
-                        const url = URL.createObjectURL(blob);
-                        const img = document.createElement("img");
-                        img.src = url; div.appendChild(img);
-                    }
-                }
-            } else {
-                const texts = [...slideXml.matchAll(/<a:t>(.*?)<\/a:t>/g)].map(m=>m[1]);
-                div.innerHTML = texts.length>0 ? texts.map(t=>`<p>${t}</p>`).join('') : '<p>(leere Folie)</p>';
-            }
-            viewer.appendChild(div); slides.push(div);
-        }
-        if(slides.length>0){ currentSlide=0; showSlide(currentSlide); pptNav.style.display = 'block'; }
-        else { viewer.innerHTML = "<p>Keine Folien gefunden.</p>"; pptNav.style.display = 'none'; }
-    } catch(err){ showError("PPTX konnte nicht angezeigt werden: " + err.message); }
+document.getElementById('pptxFile').addEventListener('change', async e=>{
+  try {
+    const buf = await e.target.files[0].arrayBuffer();
+    const zip = await JSZip.loadAsync(buf);
+    viewer.innerHTML=''; slides=[];
+    const slideFiles = Object.keys(zip.files).filter(f=>f.startsWith("ppt/slides/slide")&&f.endsWith(".xml")).sort();
+    for(const s of slideFiles){
+      const xml = await zip.files[s].async('text');
+      const div=document.createElement('div'); div.className='slide';
+      const texts=[...xml.matchAll(/<a:t>(.*?)<\/a:t>/g)].map(m=>m[1]);
+      div.innerHTML=texts.map(t=>`<p>${t}</p>`).join('')||'(leer)';
+      viewer.appendChild(div); slides.push(div);
+    }
+    if(slides.length){ currentSlide=0; showSlide(0); pptNav.style.display='block'; }
+  } catch(err){ showError("PPTX Fehler: "+err.message); }
 });
-document.getElementById('prevSlide').addEventListener('click', ()=>{ if(currentSlide>0) currentSlide--; showSlide(currentSlide); });
-document.getElementById('nextSlide').addEventListener('click', ()=>{ if(currentSlide<slides.length-1) currentSlide++; showSlide(currentSlide); });
+document.getElementById('prevSlide').addEventListener('click', ()=>{ if(currentSlide>0) showSlide(--currentSlide); });
+document.getElementById('nextSlide').addEventListener('click', ()=>{ if(currentSlide<slides.length-1) showSlide(++currentSlide); });
 
 /* --- ODF --- */
-document.getElementById('odfFile').addEventListener('change', e => {
-    try {
-        const file = e.target.files[0]; if(!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-            viewer.innerHTML = '';
-            const odfCanvas = new odf.OdfCanvas(viewer);
-            odfCanvas.load(reader.result);
-            pptNav.style.display = 'none';
-        };
-        reader.readAsArrayBuffer(file);
-    } catch(err){ showError("ODF konnte nicht angezeigt werden: " + err.message); }
+document.getElementById('odfFile').addEventListener('change', e=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    viewer.innerHTML='';
+    const c=document.createElement('div'); c.style.width="100%"; c.style.height="500px";
+    viewer.appendChild(c);
+    const odfCanvas=new odf.OdfCanvas(c);
+    odfCanvas.load(reader.result);
+    pptNav.style.display='none';
+  };
+  reader.readAsArrayBuffer(file);
 });
 </script>
 </body>
