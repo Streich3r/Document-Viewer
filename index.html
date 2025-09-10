@@ -4,7 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matrix Document Viewer</title>
+
+<!-- PPTXJS CSS -->
 <link rel="stylesheet" href="pptxjs.css">
+
 <style>
 html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
 canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
@@ -109,12 +112,13 @@ setInterval(drawMatrix,35);
 <!-- Libraries -->
 <script src="pdf.js"></script>
 <script src="pdf.worker.min.js"></script>
-<script src="docx-preview.js"></script>
+<script src="mammoth.browser.min.js"></script>
+<script src="docx-preview.min.js"></script>
 <script src="webodf.js"></script>
 <script src="xlsx.full.min.js"></script>
 <script src="jszip.min.js"></script>
 <script src="pptxjs.min.js"></script>
-<script src="pptxjs-viewer.js"></script>
+<script src="divs2slides.js"></script>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
@@ -184,7 +188,7 @@ fileInput.addEventListener('change',async e=>{
 
       } else if(name.endsWith('.pptx')){
         currentDocType="ppt";pptxContainer.style.display='block';pptxContainer.innerHTML='';
-        loadPptx(reader.result,pptxContainer);
+        loadPptx(reader.result,pptxContainer); // divs2slides.js init
 
       } else if(name.endsWith('.txt')){
         currentDocType="txt";docOutput.style.display='block';
