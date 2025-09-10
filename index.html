@@ -15,7 +15,17 @@
     reader.onload = async () => {
       try {
         const pdf = await pdfjsLib.getDocument({data: new Uint8Array(reader.result)}).promise;
-        output.innerHTML = `Seiten: ${pdf.numPages}`;
+        output.innerHTML = ''; // vorherige Inhalte löschen
+        for(let i=1; i<=pdf.numPages; i++){
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({scale: 1.2}); // Zoom
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({canvasContext: ctx, viewport}).promise;
+          output.appendChild(canvas);
+        }
       } catch(err) {
         output.innerHTML = `<span style="color:red">${err.message}</span>`;
         console.error(err);
