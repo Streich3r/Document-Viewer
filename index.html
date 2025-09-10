@@ -5,8 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matrix Document Viewer</title>
 <style>
-html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
-canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
+html, body {
+  margin:0; padding:0; height:100%; background:black;
+  font-family: monospace; overflow:hidden;
+}
+canvas#matrixCanvas {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  z-index:0; display:block;
+}
 
 #overlay {
   position:absolute; top:0; left:0; width:100%; height:100%;
@@ -125,15 +131,15 @@ setInterval(drawMatrix,35);
 
 <!-- Libraries -->
 <script src="pdf.js"></script>
+<script src="pdf.worker.min.js"></script>
 <script src="mammoth.browser.min.js"></script>
 <script src="xlsx.full.min.js"></script>
 <script src="jszip.min.js"></script>
 <script src="pptxjs.min.js"></script>
-<script>
-pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
-</script>
 
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+
 const fileInput = document.getElementById('fileInput');
 const pdfCanvas = document.getElementById('pdfCanvas');
 const docOutput = document.getElementById('docOutput');
@@ -141,6 +147,7 @@ const ctxPDF = pdfCanvas.getContext('2d');
 const errorBox = document.getElementById('errorBox');
 const viewerContainer = document.getElementById('viewerContainer');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
+const uploadBar = document.getElementById('uploadBar');
 
 let currentPdf = null;
 let currentPdfPage = null;
@@ -252,15 +259,12 @@ fullscreenBtn.addEventListener('click', async ()=>{
     viewerContainer.style.height='100%';
     viewerContainer.style.maxWidth='100%';
     viewerContainer.style.maxHeight='100%';
+    viewerContainer.style.overflow='auto';
+
+    uploadBar.style.display='none'; // Upload-Button ausblenden
 
     if(currentDocType==="pdf" && currentPdfPage){
-      const screenWidth = window.innerWidth;
-      const screenHeight = window.innerHeight;
-      const viewport = currentPdfPage.getViewport({scale:1});
-      const scaleX = screenWidth / viewport.width;
-      const scaleY = screenHeight / viewport.height;
-      const scale = Math.min(scaleX, scaleY);
-      await renderPdfPage(currentPdfPage, scale);
+      await renderPdfPage(currentPdfPage, pdfScale); // Originalgröße, keine Verzerrung
     }
     isFullscreen = true;
   } else {
@@ -269,8 +273,13 @@ fullscreenBtn.addEventListener('click', async ()=>{
     viewerContainer.style.height='';
     viewerContainer.style.maxWidth='90%';
     viewerContainer.style.maxHeight='80%';
+    viewerContainer.style.overflow='auto';
+
+    uploadBar.style.display='flex'; // Upload-Button zurückholen
+
     if(currentDocType==="pdf" && currentPdfPage){
-      await renderPdfPage(currentPdfPage, 1.0);
+      pdfScale = 1.0;
+      await renderPdfPage(currentPdfPage, pdfScale);
     }
     isFullscreen = false;
   }
