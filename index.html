@@ -52,6 +52,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   background:#0f0; color:black; border:none; cursor:pointer;
   font-weight:bold; font-size:22px; display:flex; align-items:center; justify-content:center;
   position:fixed; bottom:30px; right:30px; z-index:99999;
+  display:none; /* erst nach Upload */
 }
 
 #errorBox {
@@ -63,7 +64,6 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 .fullscreen-mode {
   position:fixed !important;
   top:0; left:0; width:100%; height:100%;
-  max-width:none; max-height:none;
   border-radius:0;
   background: rgba(0,0,0,0.95);
   z-index:9998;
@@ -143,9 +143,11 @@ const viewerContainer = document.getElementById('viewerContainer');
 
 let isFullscreen = false;
 
+// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
+  fullscreenBtn.style.display='none';
   setTimeout(()=>{errorBox.style.display='none';},5000);
 }
 
@@ -153,10 +155,11 @@ function showError(msg){
 fullscreenBtn.addEventListener('click',()=>{
   if(!isFullscreen){
     viewerContainer.classList.add('fullscreen-mode');
-    pdfCanvas.style.width='95%';
-    pdfCanvas.style.height='95%';
-    docOutput.style.width='95%';
-    docOutput.style.height='95%';
+    pdfCanvas.style.width='100%';
+    pdfCanvas.style.height='100%';
+    docOutput.style.width='100%';
+    docOutput.style.height='100%';
+    pdfCanvas.parentElement.style.overflow='auto'; // Scroll/Zoom möglich
     isFullscreen=true;
   } else {
     viewerContainer.classList.remove('fullscreen-mode');
@@ -164,6 +167,7 @@ fullscreenBtn.addEventListener('click',()=>{
     pdfCanvas.style.height='auto';
     docOutput.style.width='100%';
     docOutput.style.height='auto';
+    pdfCanvas.parentElement.style.overflow='auto';
     isFullscreen=false;
   }
 });
@@ -172,9 +176,12 @@ fullscreenBtn.addEventListener('click',()=>{
 fileInput.addEventListener('change', async e=>{
   const file = e.target.files[0];
   if(!file) return;
+
   viewerContainer.style.display='flex'; // Viewer aktivieren
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
+  fullscreenBtn.style.display='none'; // erst nach Erfolg
+
   const reader = new FileReader();
   reader.onload = async ()=>{
     const name = file.name.toLowerCase();
@@ -187,10 +194,12 @@ fileInput.addEventListener('change', async e=>{
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
         await page.render({canvasContext:ctxPDF,viewport}).promise;
+        fullscreenBtn.style.display='flex'; // nach Erfolg sichtbar
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
+        fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
         docOutput.style.display='block';
         const wb = XLSX.read(reader.result,{type:'array'});
@@ -201,6 +210,7 @@ fileInput.addEventListener('change', async e=>{
           div.innerHTML = html;
           docOutput.appendChild(div);
         });
+        fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.pptx')){
         docOutput.style.display='block';
         showError('PPTX Viewer: Implementation hängt von pptxjs Version ab.');
