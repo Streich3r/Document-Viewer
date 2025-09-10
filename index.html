@@ -4,15 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matrix Document Viewer</title>
+<link rel="stylesheet" href="pptxjs.css">
 <style>
-html, body {
-  margin:0; padding:0; height:100%; background:black;
-  font-family: monospace; overflow:hidden;
-}
-canvas#matrixCanvas {
-  position:fixed; top:0; left:0; width:100%; height:100%;
-  z-index:0; display:block;
-}
+html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
+canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
 
 #overlay {
   position:absolute; top:0; left:0; width:100%; height:100%;
@@ -35,12 +30,12 @@ canvas#matrixCanvas {
   padding:10px;
 }
 
-#pdfCanvas, #docOutput {
+#pdfCanvas, #docOutput, #docxContainer, #odtContainer, #pptxContainer {
   border-radius:12px;
-  display:block;
   background:#111;
   color:white;
   padding:10px;
+  display:none;
 }
 
 #uploadBar {
@@ -64,21 +59,14 @@ canvas#matrixCanvas {
   display:none; font-size:0.8rem;
 }
 
-/* Fullscreen-Icon */
 #fullscreenBtn {
-  position:fixed;
-  bottom:20px;
-  right:20px;
+  position:fixed; bottom:20px; right:20px;
   background:rgba(0,0,0,0.8);
   border:2px solid #0f0;
   border-radius:50%;
   width:48px; height:48px;
-  display:none;
-  justify-content:center; align-items:center;
-  cursor:pointer;
-  color:#0f0;
-  font-size:1.2rem;
-  z-index:100;
+  display:none; justify-content:center; align-items:center;
+  cursor:pointer; color:#0f0; font-size:1.2rem; z-index:100;
 }
 </style>
 </head>
@@ -89,7 +77,10 @@ canvas#matrixCanvas {
 <div id="overlay">
   <div id="viewerContainer">
     <canvas id="pdfCanvas"></canvas>
-    <div id="docOutput" style="display:none;"></div>
+    <div id="docxContainer"></div>
+    <div id="odtContainer" style="width:100%;height:100%;"></div>
+    <div id="pptxContainer"></div>
+    <div id="docOutput"></div>
   </div>
 
   <div id="uploadBar">
@@ -99,189 +90,129 @@ canvas#matrixCanvas {
   <div id="errorBox"></div>
 </div>
 
-<!-- Fullscreen Button -->
 <div id="fullscreenBtn">⛶</div>
 
 <!-- Matrix Hintergrund -->
 <script>
-const canvas = document.getElementById('matrixCanvas');
-const ctx = canvas.getContext('2d');
-function resizeCanvas(){canvas.width=window.innerWidth; canvas.height=window.innerHeight;}
-resizeCanvas();
-window.addEventListener('resize',resizeCanvas);
-
-const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=+/<>*';
-const fontSize=16;
-let columns=Math.floor(canvas.width/fontSize);
-let drops=new Array(columns).fill(0);
-
-function drawMatrix(){
-  ctx.fillStyle='rgba(0,0,0,0.05)';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#0f0';
-  ctx.font=fontSize+'px monospace';
-  for(let i=0;i<drops.length;i++){
-    const text=letters.charAt(Math.floor(Math.random()*letters.length));
-    ctx.fillText(text,i*fontSize,drops[i]*fontSize);
-    if(drops[i]*fontSize>canvas.height){drops[i]=0;} else{drops[i]++;}
-  }
-}
+const canvas=document.getElementById('matrixCanvas');const ctx=canvas.getContext('2d');
+function resizeCanvas(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+resizeCanvas();window.addEventListener('resize',resizeCanvas);
+const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=+/<>*';const fontSize=16;
+let columns=Math.floor(canvas.width/fontSize);let drops=new Array(columns).fill(0);
+function drawMatrix(){ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle='#0f0';ctx.font=fontSize+'px monospace';
+for(let i=0;i<drops.length;i++){const text=letters.charAt(Math.floor(Math.random()*letters.length));
+ctx.fillText(text,i*fontSize,drops[i]*fontSize);if(drops[i]*fontSize>canvas.height){drops[i]=0;}else{drops[i]++;}}}
 setInterval(drawMatrix,35);
 </script>
 
 <!-- Libraries -->
 <script src="pdf.js"></script>
 <script src="pdf.worker.min.js"></script>
-<script src="mammoth.browser.min.js"></script>
+<script src="docx-preview.js"></script>
+<script src="webodf.js"></script>
 <script src="xlsx.full.min.js"></script>
 <script src="jszip.min.js"></script>
 <script src="pptxjs.min.js"></script>
+<script src="pptxjs-viewer.js"></script>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
 
-const fileInput = document.getElementById('fileInput');
-const pdfCanvas = document.getElementById('pdfCanvas');
-const docOutput = document.getElementById('docOutput');
-const ctxPDF = pdfCanvas.getContext('2d');
-const errorBox = document.getElementById('errorBox');
-const viewerContainer = document.getElementById('viewerContainer');
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-const uploadBar = document.getElementById('uploadBar');
+const fileInput=document.getElementById('fileInput');
+const pdfCanvas=document.getElementById('pdfCanvas');
+const docOutput=document.getElementById('docOutput');
+const docxContainer=document.getElementById('docxContainer');
+const odtContainer=document.getElementById('odtContainer');
+const pptxContainer=document.getElementById('pptxContainer');
+const ctxPDF=pdfCanvas.getContext('2d');
+const errorBox=document.getElementById('errorBox');
+const viewerContainer=document.getElementById('viewerContainer');
+const fullscreenBtn=document.getElementById('fullscreenBtn');
+const uploadBar=document.getElementById('uploadBar');
 
-let currentPdf = null;
-let currentPdfPage = null;
-let pdfScale = 1.0;
-let isFullscreen = false;
-let currentDocType = null;
+let currentPdf=null;let currentPdfPage=null;let pdfScale=1.0;let isFullscreen=false;let currentDocType=null;
 
-function showError(msg){
-  errorBox.style.display='block';
-  errorBox.textContent=msg;
-  fullscreenBtn.style.display='none';
-  setTimeout(()=>{errorBox.style.display='none';},5000);
-}
+function showError(msg){errorBox.style.display='block';errorBox.textContent=msg;
+fullscreenBtn.style.display='none';setTimeout(()=>{errorBox.style.display='none';},5000);}
 
 // PDF render helper
 async function renderPdfPage(page, scale){
-  const viewport = page.getViewport({ scale: scale });
-  pdfCanvas.width = viewport.width;
-  pdfCanvas.height = viewport.height;
-  await page.render({
-    canvasContext: ctxPDF,
-    viewport: viewport
-  }).promise;
+  const viewport=page.getViewport({scale:scale});
+  pdfCanvas.width=viewport.width;pdfCanvas.height=viewport.height;
+  await page.render({canvasContext:ctxPDF,viewport:viewport}).promise;
 }
 
-// File Upload Handling
-fileInput.addEventListener('change', async e=>{
-  const file = e.target.files[0];
-  if(!file) return;
-
+// Upload Handling
+fileInput.addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
   viewerContainer.style.display='flex';
-  pdfCanvas.style.display='none';
-  docOutput.style.display='none';
+  [pdfCanvas,docOutput,docxContainer,odtContainer,pptxContainer].forEach(el=>el.style.display='none');
 
-  const reader = new FileReader();
-  reader.onload = async ()=>{
-    const name = file.name.toLowerCase();
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    const name=file.name.toLowerCase();
     try{
       if(name.endsWith('.pdf')){
-        currentDocType="pdf";
-        pdfCanvas.style.display='block';
-
-        const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
-        const page = await pdf.getPage(1);
-        currentPdf = pdf;
-        currentPdfPage = page;
-        pdfScale = 1.0;
-
-        await renderPdfPage(page, pdfScale);
-
-        // Zoom mit Mausrad
-        pdfCanvas.onwheel = async evt=>{
-          evt.preventDefault();
-          pdfScale += evt.deltaY * -0.001;
-          pdfScale = Math.min(Math.max(0.2, pdfScale), 5);
-          await renderPdfPage(currentPdfPage, pdfScale);
+        currentDocType="pdf";pdfCanvas.style.display='block';
+        const pdf=await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
+        const page=await pdf.getPage(1);currentPdf=pdf;currentPdfPage=page;pdfScale=1.0;
+        await renderPdfPage(page,pdfScale);
+        pdfCanvas.onwheel=async evt=>{
+          evt.preventDefault();pdfScale+=evt.deltaY*-0.001;
+          pdfScale=Math.min(Math.max(0.2,pdfScale),5);
+          await renderPdfPage(currentPdfPage,pdfScale);
         };
 
-      } else if(name.endsWith('.docx') || name.endsWith('.odt')){
-        currentDocType="doc";
-        docOutput.style.display='block';
-        const result = await mammoth.extractRawText({arrayBuffer:reader.result});
-        docOutput.textContent=result.value;
+      } else if(name.endsWith('.docx')){
+        currentDocType="docx";docxContainer.style.display='block';docxContainer.innerHTML='';
+        const docx=new DocxPreview();docx.renderAsync(reader.result,docxContainer);
 
-      } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
-        currentDocType="xls";
-        docOutput.style.display='block';
-        const wb = XLSX.read(reader.result,{type:'array'});
-        docOutput.innerHTML='';
+      } else if(name.endsWith('.odt')){
+        currentDocType="odt";odtContainer.style.display='block';odtContainer.innerHTML='';
+        const odfCanvas=new odf.OdfCanvas(odtContainer);
+        const blob=new Blob([reader.result],{type:"application/vnd.oasis.opendocument.text"});
+        const url=URL.createObjectURL(blob);await odfCanvas.load(url);
+
+      } else if(name.endsWith('.xlsx')||name.endsWith('.ods')){
+        currentDocType="xls";docOutput.style.display='block';
+        const wb=XLSX.read(reader.result,{type:'array'});docOutput.innerHTML='';
         wb.SheetNames.forEach(sheet=>{
-          const html = XLSX.utils.sheet_to_html(wb.Sheets[sheet]);
-          const div = document.createElement('div');
-          div.innerHTML = html;
-          docOutput.appendChild(div);
+          const html=XLSX.utils.sheet_to_html(wb.Sheets[sheet]);
+          const div=document.createElement('div');div.innerHTML=html;docOutput.appendChild(div);
         });
 
       } else if(name.endsWith('.pptx')){
-        currentDocType="ppt";
-        docOutput.style.display='block';
-        docOutput.textContent = "PPTX Vorschau: einfache Unterstützung. (pptxjs Integration nötig)";
+        currentDocType="ppt";pptxContainer.style.display='block';pptxContainer.innerHTML='';
+        loadPptx(reader.result,pptxContainer);
 
       } else if(name.endsWith('.txt')){
-        currentDocType="txt";
-        docOutput.style.display='block';
-        const textDecoder = new TextDecoder("utf-8");
-        docOutput.textContent = textDecoder.decode(reader.result);
+        currentDocType="txt";docOutput.style.display='block';
+        const textDecoder=new TextDecoder("utf-8");
+        docOutput.textContent=textDecoder.decode(reader.result);
 
-      } else {
-        showError('Format nicht unterstützt');
-        return;
-      }
-
-      fullscreenBtn.style.display='flex'; // nur anzeigen, wenn erfolgreich
-    } catch(err){
-      showError(err.message);
-      console.error(err);
-    }
+      } else {showError('Format nicht unterstützt');return;}
+      fullscreenBtn.style.display='flex';
+    }catch(err){showError(err.message);console.error(err);}
   };
   reader.readAsArrayBuffer(file);
 });
 
 // Fullscreen Toggle
-fullscreenBtn.addEventListener('click', async ()=>{
+fullscreenBtn.addEventListener('click',async()=>{
   if(!isFullscreen){
-    viewerContainer.style.position='fixed';
-    viewerContainer.style.top='0';
-    viewerContainer.style.left='0';
-    viewerContainer.style.width='100%';
-    viewerContainer.style.height='100%';
-    viewerContainer.style.maxWidth='100%';
-    viewerContainer.style.maxHeight='100%';
-    viewerContainer.style.overflow='auto';
-
-    uploadBar.style.display='none'; // Upload-Button ausblenden
-
-    if(currentDocType==="pdf" && currentPdfPage){
-      await renderPdfPage(currentPdfPage, pdfScale); // Originalgröße, keine Verzerrung
-    }
-    isFullscreen = true;
+    viewerContainer.style.position='fixed';viewerContainer.style.top='0';viewerContainer.style.left='0';
+    viewerContainer.style.width='100%';viewerContainer.style.height='100%';
+    viewerContainer.style.maxWidth='100%';viewerContainer.style.maxHeight='100%';
+    viewerContainer.style.overflow='auto';uploadBar.style.display='none';
+    if(currentDocType==="pdf"&&currentPdfPage){await renderPdfPage(currentPdfPage,pdfScale);}
+    isFullscreen=true;
   } else {
-    viewerContainer.style.position='relative';
-    viewerContainer.style.width='';
-    viewerContainer.style.height='';
-    viewerContainer.style.maxWidth='90%';
-    viewerContainer.style.maxHeight='80%';
-    viewerContainer.style.overflow='auto';
-
-    uploadBar.style.display='flex'; // Upload-Button zurückholen
-
-    if(currentDocType==="pdf" && currentPdfPage){
-      pdfScale = 1.0;
-      await renderPdfPage(currentPdfPage, pdfScale);
-    }
-    isFullscreen = false;
+    viewerContainer.style.position='relative';viewerContainer.style.width='';viewerContainer.style.height='';
+    viewerContainer.style.maxWidth='90%';viewerContainer.style.maxHeight='80%';
+    viewerContainer.style.overflow='auto';uploadBar.style.display='flex';
+    if(currentDocType==="pdf"&&currentPdfPage){pdfScale=1.0;await renderPdfPage(currentPdfPage,pdfScale);}
+    isFullscreen=false;
   }
 });
 </script>
