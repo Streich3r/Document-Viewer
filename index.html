@@ -2,263 +2,43 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <title>Matrix Document Viewer</title>
+  <title>PDF Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: black;
-      overflow: hidden;
-      font-family: monospace, sans-serif;
-    }
-    canvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      background: black;
-      z-index: 0;
-    }
-    #overlay {
-      position: relative;
-      z-index: 1;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      background: rgba(0,0,0,0.6); /* semitransparent */
-      color: #0f0;
-    }
-    #viewer {
-      flex: 1;
-      overflow: auto;
-      padding: 1rem;
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
-    #error {
-      color: #f33;
-      padding: 0.5rem;
-      display: none;
-    }
-    #pptxNav {
-      display: none;
-      text-align: center;
-      padding: 0.5rem;
-    }
-    .navButton {
-      background: #000;
-      border: 2px solid #0f0;
-      color: #0f0;
-      padding: 0.7rem 1.2rem;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 1rem;
-      margin: 0 0.5rem;
-    }
-    #uploadBar {
-      text-align: center;
-      padding: 1rem;
-    }
-    #fileInput {
-      background: #000;
-      border: 2px solid #0f0;
-      color: #0f0;
-      padding: 0.8rem 1rem;
-      border-radius: 12px;
-      cursor: pointer;
-      font-size: 1rem;
-      width: 90%;
-      max-width: 400px;
-    }
-    canvas.pdfPage {
-      display: block;
-      margin: 1rem auto;
-      max-width: 100%;
-      height: auto;
-      border: 1px solid #0f0;
-      border-radius: 8px;
-    }
+    body { background: #111; color: #0f0; font-family: monospace; }
+    #output canvas { display:block; margin:1rem auto; border:1px solid #0f0; }
   </style>
 </head>
 <body>
-  <canvas id="matrixCanvas"></canvas>
-  <div id="overlay">
-    <div id="viewer">
-      <h2>📄 Lade ein Dokument hoch</h2>
-      <div id="error"></div>
-      <div id="output"></div>
-    </div>
-    <div id="pptxNav">
-      <button id="prevSlide" class="navButton">⬅ Zurück</button>
-      <span id="slideInfo"></span>
-      <button id="nextSlide" class="navButton">Weiter ➡</button>
-    </div>
-    <div id="uploadBar">
-      <input type="file" id="fileInput" />
-    </div>
-  </div>
+  <h2>📄 PDF Test</h2>
+  <input type="file" id="fileInput" />
+  <div id="output"></div>
 
-  <!-- Matrix Hintergrund -->
-  <script>
-    const canvas = document.getElementById('matrixCanvas');
-    const ctx = canvas.getContext('2d');
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=+/<>*';
-    const fontSize = 16;
-    let columns = Math.floor(canvas.width / fontSize);
-    let drops = new Array(columns).fill(0);
-
-    function drawMatrix() {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#0f0';
-      ctx.font = fontSize + 'px monospace';
-
-      for (let i = 0; i < drops.length; i++) {
-        const text = letters.charAt(Math.floor(Math.random() * letters.length));
-        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-        if (drops[i] * fontSize > canvas.height) {
-          drops[i] = 0;
-        } else {
-          drops[i]++;
-        }
-      }
-    }
-    setInterval(drawMatrix, 35);
-  </script>
-
-  <!-- Bibliotheken -->
   <script src="pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
-  </script>
-  <script src="mammoth.browser.min.js"></script>
-  <script src="xlsx.full.min.js"></script>
-  <script src="jszip.min.js"></script>
-  <script src="pptxjs.min.js"></script>
 
-  <!-- Dokumentenlogik -->
-  <script>
-    const fileInput = document.getElementById('fileInput');
-    const output = document.getElementById('output');
-    const errorBox = document.getElementById('error');
-    const pptxNav = document.getElementById('pptxNav');
-    const slideInfo = document.getElementById('slideInfo');
-    const prevSlideBtn = document.getElementById('prevSlide');
-    const nextSlideBtn = document.getElementById('nextSlide');
-
-    let pptxSlides = [];
-    let currentSlide = 0;
-
-    function showError(msg) {
-      errorBox.style.display = 'block';
-      errorBox.textContent = '❌ ' + msg;
-    }
-    function clearError() {
-      errorBox.style.display = 'none';
-      errorBox.textContent = '';
-    }
-
-    function showSlide(index) {
-      if (pptxSlides.length === 0) return;
-      if (index < 0 || index >= pptxSlides.length) return;
-      output.innerHTML = '';
-      output.appendChild(pptxSlides[index]);
-      slideInfo.textContent = `Folie ${index+1} von ${pptxSlides.length}`;
-      currentSlide = index;
-      pptxNav.style.display = 'block';
-    }
-
-    prevSlideBtn.onclick = () => {
-      if (currentSlide > 0) showSlide(currentSlide - 1);
-    };
-    nextSlideBtn.onclick = () => {
-      if (currentSlide < pptxSlides.length - 1) showSlide(currentSlide + 1);
-    };
-
-    fileInput.addEventListener('change', async (e) => {
-      clearError();
-      output.innerHTML = '';
-      pptxNav.style.display = 'none';
-      pptxSlides = [];
-      currentSlide = 0;
-
+    document.getElementById("fileInput").addEventListener("change", async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const name = file.name.toLowerCase();
-
-      try {
-        if (name.endsWith('.pdf')) {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const pdf = await pdfjsLib.getDocument({data: new Uint8Array(reader.result)}).promise;
-            for (let i = 1; i <= pdf.numPages; i++) {
-              const page = await pdf.getPage(i);
-              const viewport = page.getViewport({ scale: 1.2 });
-              const canvas = document.createElement('canvas');
-              canvas.className = "pdfPage";
-              const ctx = canvas.getContext('2d');
-              canvas.width = viewport.width;
-              canvas.height = viewport.height;
-              await page.render({ canvasContext: ctx, viewport }).promise;
-              output.appendChild(canvas);
-            }
-          };
-          reader.readAsArrayBuffer(file);
-
-        } else if (name.endsWith('.docx') || name.endsWith('.odt')) {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const result = await mammoth.extractRawText({arrayBuffer: reader.result});
-            output.textContent = result.value;
-          };
-          reader.readAsArrayBuffer(file);
-
-        } else if (name.endsWith('.xlsx') || name.endsWith('.ods')) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const wb = XLSX.read(reader.result, {type: 'array'});
-            wb.SheetNames.forEach(sheetName => {
-              const html = XLSX.utils.sheet_to_html(wb.Sheets[sheetName]);
-              const div = document.createElement('div');
-              div.innerHTML = html;
-              output.appendChild(div);
-            });
-          };
-          reader.readAsArrayBuffer(file);
-
-        } else if (name.endsWith('.pptx')) {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              // Nutze pptxjs
-              const pptx = new PPTXjs();
-              await pptx.load(reader.result);
-              pptxSlides = pptx.renderSlides();
-              showSlide(0);
-            } catch (err) {
-              showError("PPTX Fehler: " + err.message);
-            }
-          };
-          reader.readAsArrayBuffer(file);
-
-        } else {
-          showError("Dateiformat nicht unterstützt.");
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const data = new Uint8Array(reader.result);
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
+        const output = document.getElementById("output");
+        output.innerHTML = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.0 });
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          output.appendChild(canvas);
         }
-      } catch (err) {
-        showError(err.message);
-      }
+      };
+      reader.readAsArrayBuffer(file);
     });
   </script>
 </body>
