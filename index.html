@@ -18,7 +18,6 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 
 #viewerContainer {
   position:relative;
-  width:90%; max-width:800px; max-height:70%;
   background: rgba(0,0,0,0.8);
   border-radius:16px;
   display:flex; justify-content:center; align-items:center;
@@ -28,7 +27,6 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 }
 
 #pdfCanvas, #docOutput {
-  width:100%;
   border-radius:12px;
 }
 
@@ -129,9 +127,9 @@ const viewerContainer = document.getElementById('viewerContainer');
 let isFullscreen = false;
 let currentPdf = null;
 let currentPdfPage = null;
-let currentViewport = null;
+let originalViewport = null;
+let currentDocType = null; // "pdf", "docx", "xlsx"
 
-// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
@@ -143,26 +141,33 @@ function showError(msg){
 fullscreenBtn.addEventListener('click', async ()=>{
   if(!isFullscreen){
     viewerContainer.classList.add('fullscreen-mode');
-    pdfCanvas.style.width = window.innerWidth * 0.95 + 'px';
-    pdfCanvas.style.height = window.innerHeight * 0.95 + 'px';
-    docOutput.style.width = window.innerWidth * 0.95 + 'px';
-    docOutput.style.height = window.innerHeight * 0.95 + 'px';
-    viewerContainer.style.overflow = 'auto';
-    if(currentPdf && currentPdfPage){
+    if(currentDocType==="pdf" && currentPdf && currentPdfPage){
+      // PDF Canvas auf Bildschirmgröße skalieren
+      pdfCanvas.width = window.innerWidth;
+      pdfCanvas.height = window.innerHeight;
       const viewport = currentPdfPage.getViewport({scale:1});
-      const scaleX = (window.innerWidth*0.95)/viewport.width;
-      const scaleY = (window.innerHeight*0.95)/viewport.height;
+      const scaleX = pdfCanvas.width / viewport.width;
+      const scaleY = pdfCanvas.height / viewport.height;
       const scale = Math.min(scaleX, scaleY);
       const scaledViewport = currentPdfPage.getViewport({scale: scale});
-      await currentPdfPage.render({canvasContext:ctxPDF,viewport:scaledViewport}).promise;
+      await currentPdfPage.render({canvasContext: ctxPDF, viewport: scaledViewport}).promise;
+    } else {
+      // Andere Dokumente: Container auf fullscreen
+      docOutput.style.width = window.innerWidth + "px";
+      docOutput.style.height = window.innerHeight + "px";
+      docOutput.parentElement.style.overflow='auto';
     }
     isFullscreen = true;
   } else {
     viewerContainer.classList.remove('fullscreen-mode');
-    pdfCanvas.style.width = currentViewport.width + 'px';
-    pdfCanvas.style.height = currentViewport.height + 'px';
-    docOutput.style.width = '100%';
-    docOutput.style.height = 'auto';
+    if(currentDocType==="pdf" && currentPdf && currentPdfPage){
+      pdfCanvas.width = originalViewport.width;
+      pdfCanvas.height = originalViewport.height;
+      await currentPdfPage.render({canvasContext: ctxPDF, viewport: originalViewport}).promise;
+    } else {
+      docOutput.style.width = "100%";
+      docOutput.style.height = "auto";
+    }
     isFullscreen = false;
   }
 });
@@ -182,23 +187,26 @@ fileInput.addEventListener('change', async e=>{
     const name = file.name.toLowerCase();
     try{
       if(name.endsWith('.pdf')){
+        currentDocType="pdf";
         pdfCanvas.style.display='block';
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
         const page = await pdf.getPage(1);
         currentPdf = pdf;
         currentPdfPage = page;
         const viewport = page.getViewport({scale:1.2});
-        currentViewport = viewport;
+        originalViewport = viewport;
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
         await page.render({canvasContext:ctxPDF,viewport}).promise;
         fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
+        currentDocType="docx";
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
         fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
+        currentDocType="xlsx";
         docOutput.style.display='block';
         const wb = XLSX.read(reader.result,{type:'array'});
         docOutput.innerHTML='';
@@ -210,6 +218,7 @@ fileInput.addEventListener('change', async e=>{
         });
         fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.pptx')){
+        currentDocType="pptx";
         docOutput.style.display='block';
         showError('PPTX Viewer: Implementation hängt von pptxjs Version ab.');
       } else showError('Format nicht unterstützt');
