@@ -4,10 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Matrix Document Viewer</title>
-
-<!-- PPTXJS CSS -->
 <link rel="stylesheet" href="pptxjs.css">
-
 <style>
 html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
 canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
@@ -21,42 +18,47 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 
-/* Viewer Container */
+/* Viewer Container (Preview) */
 #viewerContainer {
   display:none;
   background: rgba(0,0,0,0.85);
   border-radius:16px;
   max-width:90%;
   max-height:80%;
-  overflow:auto;
+  overflow:hidden; /* Kein scroll, Preview passt komplett */
   justify-content:center;
   align-items:center;
   flex-direction:column;
   padding:10px;
   box-sizing: border-box;
-  border:2px solid #0f0; /* Grüner Rand für den Viewer */
+  border:2px solid #0f0; /* Grüner Rand für Viewer */
 }
 
-/* PDF-Canvas */
+/* PDF Canvas */
 #pdfCanvas {
   border-radius:12px;
-  border:2px solid #333; /* Dark Mode Rand für PDF-Dokument */
+  border:2px solid #333; /* Dark Mode Rand */
   background:#111;
   display:none;
   box-sizing:border-box;
   margin:5px;
+  width:100%;
+  height:auto;
 }
 
-/* Andere Dokumente */
+/* Andere Dokumente Preview */
 #docOutput, #docxContainer, #odtContainer, #pptxContainer {
   border-radius:12px;
-  border:2px solid #333; /* Dark Mode Rand für Dokumente */
+  border:2px solid #333;
   background:#111;
   color:white;
   padding:10px;
   display:none;
   box-sizing:border-box;
   margin:5px;
+  width:100%;
+  height:auto;
+  overflow:hidden;
 }
 
 /* Upload Bar */
@@ -103,7 +105,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   <div id="viewerContainer">
     <canvas id="pdfCanvas"></canvas>
     <div id="docxContainer"></div>
-    <div id="odtContainer" style="width:100%;height:100%;"></div>
+    <div id="odtContainer"></div>
     <div id="pptxContainer"></div>
     <div id="docOutput"></div>
   </div>
@@ -163,6 +165,15 @@ function showError(msg){errorBox.style.display='block';errorBox.textContent=msg;
 fullscreenBtn.style.display='none';setTimeout(()=>{errorBox.style.display='none';},5000);}
 
 // PDF render helper
+async function renderPdfPreview(page, containerWidth, containerHeight){
+  const viewport=page.getViewport({scale:1});
+  const scale=Math.min(containerWidth/viewport.width, containerHeight/viewport.height);
+  const scaledViewport=page.getViewport({scale:scale});
+  pdfCanvas.width=scaledViewport.width;
+  pdfCanvas.height=scaledViewport.height;
+  await page.render({canvasContext:ctxPDF, viewport:scaledViewport}).promise;
+}
+
 async function renderPdfPage(page, scale){
   const viewport=page.getViewport({scale:scale});
   pdfCanvas.width=viewport.width; pdfCanvas.height=viewport.height;
@@ -201,12 +212,9 @@ fileInput.addEventListener('change', async e => {
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
         const page = await pdf.getPage(1);
         currentPdf = pdf; currentPdfPage = page; pdfScale=1.0;
-        await renderPdfPage(page,pdfScale);
-        pdfCanvas.onwheel=async evt=>{
-          evt.preventDefault(); pdfScale+=evt.deltaY*-0.001;
-          pdfScale=Math.min(Math.max(0.2,pdfScale),5);
-          await renderPdfPage(currentPdfPage,pdfScale);
-        };
+        const containerWidth=viewerContainer.clientWidth-20;
+        const containerHeight=viewerContainer.clientHeight-20;
+        await renderPdfPreview(page, containerWidth, containerHeight);
 
       } else if(name.endsWith('.docx')){
         currentDocType="docx"; docxContainer.style.display='block';
@@ -245,17 +253,30 @@ fileInput.addEventListener('change', async e => {
 // Fullscreen Toggle
 fullscreenBtn.addEventListener('click', async () => {
   if(!isFullscreen){
-    viewerContainer.style.position='fixed'; viewerContainer.style.top='0'; viewerContainer.style.left='0';
-    viewerContainer.style.width='100%'; viewerContainer.style.height='100%';
-    viewerContainer.style.maxWidth='100%'; viewerContainer.style.maxHeight='100%';
-    viewerContainer.style.overflow='auto'; uploadBar.style.display='none';
-    if(currentDocType==="pdf"&&currentPdfPage){await renderPdfPage(currentPdfPage,pdfScale);}
+    viewerContainer.style.position='fixed';
+    viewerContainer.style.top='0';
+    viewerContainer.style.left='0';
+    viewerContainer.style.width='100vw';
+    viewerContainer.style.height='100vh';
+    viewerContainer.style.overflow='auto';
+    uploadBar.style.display='none';
+    if(currentDocType==="pdf" && currentPdfPage){
+      await renderPdfPage(currentPdfPage,1.0);
+    }
     isFullscreen=true;
   } else {
-    viewerContainer.style.position='relative'; viewerContainer.style.width=''; viewerContainer.style.height='';
-    viewerContainer.style.maxWidth='90%'; viewerContainer.style.maxHeight='80%';
-    viewerContainer.style.overflow='auto'; uploadBar.style.display='flex';
-    if(currentDocType==="pdf"&&currentPdfPage){pdfScale=1.0; await renderPdfPage(currentPdfPage,pdfScale);}
+    viewerContainer.style.position='relative';
+    viewerContainer.style.width='90%';
+    viewerContainer.style.height='80%';
+    viewerContainer.style.maxWidth='90%';
+    viewerContainer.style.maxHeight='80%';
+    viewerContainer.style.overflow='hidden';
+    uploadBar.style.display='flex';
+    if(currentDocType==="pdf" && currentPdfPage){
+      const containerWidth=viewerContainer.clientWidth-20;
+      const containerHeight=viewerContainer.clientHeight-20;
+      await renderPdfPreview(currentPdfPage, containerWidth, containerHeight);
+    }
     isFullscreen=false;
   }
 });
