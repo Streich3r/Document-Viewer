@@ -9,7 +9,6 @@
 html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
 canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
 
-/* Overlay */
 #overlay {
   position:absolute; top:0; left:0; width:100%; height:100%;
   backdrop-filter: blur(6px);
@@ -18,14 +17,14 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 
-/* Viewer Container (Preview) */
 #viewerContainer {
   display:none;
+  position:relative;
+  width:800px;
+  height:600px;
   background: rgba(0,0,0,0.85);
   border-radius:16px;
-  max-width:90%;
-  max-height:80%;
-  overflow:hidden; /* Kein scroll, Preview passt komplett */
+  overflow:hidden;
   justify-content:center;
   align-items:center;
   flex-direction:column;
@@ -34,19 +33,16 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   border:2px solid #0f0; /* Grüner Rand für Viewer */
 }
 
-/* PDF Canvas */
 #pdfCanvas {
   border-radius:12px;
-  border:2px solid #333; /* Dark Mode Rand */
+  border:2px solid #333;
   background:#111;
   display:none;
   box-sizing:border-box;
-  margin:5px;
   width:100%;
-  height:auto;
+  height:100%;
 }
 
-/* Andere Dokumente Preview */
 #docOutput, #docxContainer, #odtContainer, #pptxContainer {
   border-radius:12px;
   border:2px solid #333;
@@ -55,13 +51,11 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   padding:10px;
   display:none;
   box-sizing:border-box;
-  margin:5px;
   width:100%;
-  height:auto;
+  height:100%;
   overflow:hidden;
 }
 
-/* Upload Bar */
 #uploadBar {
   position:absolute;
   bottom:20px;
@@ -72,20 +66,17 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   width:100%;
 }
 
-/* Datei Input */
 #fileInput {
   background:#000; border:2px solid #0f0; color:#0f0;
   padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer;
 }
 
-/* Error Box */
 #errorBox {
   position:absolute; bottom:90px; background: rgba(255,0,0,0.8);
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
 }
 
-/* Fullscreen Button */
 #fullscreenBtn {
   position:fixed; bottom:20px; right:20px;
   background:rgba(0,0,0,0.8);
@@ -94,6 +85,18 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   width:48px; height:48px;
   display:none; justify-content:center; align-items:center;
   cursor:pointer; color:#0f0; font-size:1.2rem; z-index:100;
+}
+
+.fullscreen {
+  position:fixed !important;
+  top:0 !important;
+  left:0 !important;
+  width:100vw !important;
+  height:100vh !important;
+  max-width:none !important;
+  max-height:none !important;
+  overflow:auto !important;
+  z-index:999;
 }
 </style>
 </head>
@@ -160,12 +163,15 @@ const fullscreenBtn=document.getElementById('fullscreenBtn');
 const uploadBar=document.getElementById('uploadBar');
 
 let currentPdf=null; let currentPdfPage=null; let pdfScale=1.0; let isFullscreen=false; let currentDocType=null;
+let pptxViewerInstance=null;
 
 function showError(msg){errorBox.style.display='block';errorBox.textContent=msg;
 fullscreenBtn.style.display='none';setTimeout(()=>{errorBox.style.display='none';},5000);}
 
-// PDF render helper
-async function renderPdfPreview(page, containerWidth, containerHeight){
+// PDF Preview
+async function renderPdfPreview(page){
+  const containerWidth=viewerContainer.clientWidth-20;
+  const containerHeight=viewerContainer.clientHeight-20;
   const viewport=page.getViewport({scale:1});
   const scale=Math.min(containerWidth/viewport.width, containerHeight/viewport.height);
   const scaledViewport=page.getViewport({scale:scale});
@@ -174,60 +180,58 @@ async function renderPdfPreview(page, containerWidth, containerHeight){
   await page.render({canvasContext:ctxPDF, viewport:scaledViewport}).promise;
 }
 
-async function renderPdfPage(page, scale){
-  const viewport=page.getViewport({scale:scale});
-  pdfCanvas.width=viewport.width; pdfCanvas.height=viewport.height;
-  await page.render({canvasContext:ctxPDF, viewport:viewport}).promise;
+// PDF Fullscreen
+async function renderPdfFullscreen(page){
+  const viewport=page.getViewport({scale:1});
+  pdfCanvas.width=viewport.width;
+  pdfCanvas.height=viewport.height;
+  await page.render({canvasContext:ctxPDF, viewport}).promise;
 }
 
 // DOCX
 function renderDocx(arrayBuffer){
   docxContainer.innerHTML='';
-  const docx = new docxPreview.Viewer(docxContainer, { 
-    className: 'docViewer', 
-    style: 'border:2px solid #333; border-radius:12px;' 
-  });
+  const docx = new docxPreview.Viewer(docxContainer, { className:'docViewer', style:'border:2px solid #333; border-radius:12px;' });
   docx.load(arrayBuffer);
 }
 
 // PPTX
 function renderPptx(arrayBuffer){
   pptxContainer.innerHTML='';
-  const pptx = new PPTXViewer(pptxContainer);
-  pptx.load(arrayBuffer);
+  if(pptxViewerInstance) pptxViewerInstance.destroy();
+  pptxViewerInstance = new PPTXViewer(pptxContainer);
+  pptxViewerInstance.load(arrayBuffer);
 }
 
 // Upload Handling
-fileInput.addEventListener('change', async e => {
-  const file = e.target.files[0]; if(!file) return;
+fileInput.addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
   viewerContainer.style.display='flex';
   [pdfCanvas, docOutput, docxContainer, odtContainer, pptxContainer].forEach(el=>el.style.display='none');
 
-  const reader = new FileReader();
-  reader.onload = async () => {
-    const name = file.name.toLowerCase();
-    try {
+  const reader=new FileReader();
+  reader.onload=async ()=>{
+    const name=file.name.toLowerCase();
+    try{
       if(name.endsWith('.pdf')){
-        currentDocType="pdf"; pdfCanvas.style.display='block';
-        const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
-        const page = await pdf.getPage(1);
-        currentPdf = pdf; currentPdfPage = page; pdfScale=1.0;
-        const containerWidth=viewerContainer.clientWidth-20;
-        const containerHeight=viewerContainer.clientHeight-20;
-        await renderPdfPreview(page, containerWidth, containerHeight);
+        currentDocType='pdf'; pdfCanvas.style.display='block';
+        const pdf=await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
+        const page=await pdf.getPage(1);
+        currentPdf=pdf; currentPdfPage=page; pdfScale=1.0;
+        await renderPdfPreview(page);
 
       } else if(name.endsWith('.docx')){
-        currentDocType="docx"; docxContainer.style.display='block';
+        currentDocType='docx'; docxContainer.style.display='block';
         renderDocx(reader.result);
 
       } else if(name.endsWith('.odt')){
-        currentDocType="odt"; odtContainer.style.display='block'; odtContainer.innerHTML='';
+        currentDocType='odt'; odtContainer.style.display='block'; odtContainer.innerHTML='';
         const odfCanvas=new odf.OdfCanvas(odtContainer);
         const blob=new Blob([reader.result],{type:"application/vnd.oasis.opendocument.text"});
         const url=URL.createObjectURL(blob); await odfCanvas.load(url);
 
       } else if(name.endsWith('.xlsx')||name.endsWith('.ods')){
-        currentDocType="xls"; docOutput.style.display='block'; docOutput.innerHTML='';
+        currentDocType='xls'; docOutput.style.display='block'; docOutput.innerHTML='';
         const wb=XLSX.read(reader.result,{type:'array'});
         wb.SheetNames.forEach(sheet=>{
           const html=XLSX.utils.sheet_to_html(wb.Sheets[sheet]);
@@ -235,48 +239,32 @@ fileInput.addEventListener('change', async e => {
         });
 
       } else if(name.endsWith('.pptx')){
-        currentDocType="ppt"; pptxContainer.style.display='block';
+        currentDocType='ppt'; pptxContainer.style.display='block';
         renderPptx(reader.result);
 
       } else if(name.endsWith('.txt')){
-        currentDocType="txt"; docOutput.style.display='block';
-        const textDecoder=new TextDecoder("utf-8");
+        currentDocType='txt'; docOutput.style.display='block';
+        const textDecoder=new TextDecoder('utf-8');
         docOutput.textContent=textDecoder.decode(reader.result);
 
       } else {showError('Format nicht unterstützt'); return;}
       fullscreenBtn.style.display='flex';
-    } catch(err){ showError(err.message); console.error(err); }
+    }catch(err){showError(err.message); console.error(err);}
   };
   reader.readAsArrayBuffer(file);
 });
 
 // Fullscreen Toggle
-fullscreenBtn.addEventListener('click', async () => {
+fullscreenBtn.addEventListener('click', async ()=>{
   if(!isFullscreen){
-    viewerContainer.style.position='fixed';
-    viewerContainer.style.top='0';
-    viewerContainer.style.left='0';
-    viewerContainer.style.width='100vw';
-    viewerContainer.style.height='100vh';
-    viewerContainer.style.overflow='auto';
+    viewerContainer.classList.add('fullscreen');
     uploadBar.style.display='none';
-    if(currentDocType==="pdf" && currentPdfPage){
-      await renderPdfPage(currentPdfPage,1.0);
-    }
+    if(currentDocType==='pdf' && currentPdfPage) await renderPdfFullscreen(currentPdfPage);
     isFullscreen=true;
-  } else {
-    viewerContainer.style.position='relative';
-    viewerContainer.style.width='90%';
-    viewerContainer.style.height='80%';
-    viewerContainer.style.maxWidth='90%';
-    viewerContainer.style.maxHeight='80%';
-    viewerContainer.style.overflow='hidden';
+  }else{
+    viewerContainer.classList.remove('fullscreen');
     uploadBar.style.display='flex';
-    if(currentDocType==="pdf" && currentPdfPage){
-      const containerWidth=viewerContainer.clientWidth-20;
-      const containerHeight=viewerContainer.clientHeight-20;
-      await renderPdfPreview(currentPdfPage, containerWidth, containerHeight);
-    }
+    if(currentDocType==='pdf' && currentPdfPage) await renderPdfPreview(currentPdfPage);
     isFullscreen=false;
   }
 });
