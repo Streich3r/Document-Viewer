@@ -31,6 +31,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   align-items:center;
   flex-direction:column;
   padding:10px;
+  border:2px solid #333;
 }
 
 #pdfCanvas, #docOutput, #docxContainer, #odtContainer, #pptxContainer {
@@ -39,6 +40,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   color:white;
   padding:10px;
   display:none;
+  border:2px solid #333;
 }
 
 #uploadBar {
@@ -118,7 +120,7 @@ setInterval(drawMatrix,35);
 <script src="xlsx.full.min.js"></script>
 <script src="jszip.min.js"></script>
 <script src="pptxjs.min.js"></script>
-<script src="divs2slides.js"></script>
+<script src="pptxjs-viewer.js"></script>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
@@ -135,7 +137,7 @@ const viewerContainer=document.getElementById('viewerContainer');
 const fullscreenBtn=document.getElementById('fullscreenBtn');
 const uploadBar=document.getElementById('uploadBar');
 
-let currentPdf=null;let currentPdfPage=null;let pdfScale=1.0;let isFullscreen=false;let currentDocType=null;
+let currentPdf=null; let currentPdfPage=null; let pdfScale=1.0; let isFullscreen=false; let currentDocType=null;
 
 function showError(msg){errorBox.style.display='block';errorBox.textContent=msg;
 fullscreenBtn.style.display='none';setTimeout(()=>{errorBox.style.display='none';},5000);}
@@ -143,79 +145,97 @@ fullscreenBtn.style.display='none';setTimeout(()=>{errorBox.style.display='none'
 // PDF render helper
 async function renderPdfPage(page, scale){
   const viewport=page.getViewport({scale:scale});
-  pdfCanvas.width=viewport.width;pdfCanvas.height=viewport.height;
-  await page.render({canvasContext:ctxPDF,viewport:viewport}).promise;
+  pdfCanvas.width=viewport.width; pdfCanvas.height=viewport.height;
+  await page.render({canvasContext:ctxPDF, viewport:viewport}).promise;
+}
+
+// DOCX
+function renderDocx(arrayBuffer){
+  docxContainer.innerHTML='';
+  const docx = new docxPreview.Viewer(docxContainer, { 
+    className: 'docViewer', 
+    style: 'border:2px solid #333; border-radius:12px;' 
+  });
+  docx.load(arrayBuffer);
+}
+
+// PPTX
+function renderPptx(arrayBuffer){
+  pptxContainer.innerHTML='';
+  const pptx = new PPTXViewer(pptxContainer);
+  pptx.load(arrayBuffer);
 }
 
 // Upload Handling
-fileInput.addEventListener('change',async e=>{
-  const file=e.target.files[0];if(!file)return;
+fileInput.addEventListener('change', async e => {
+  const file = e.target.files[0]; if(!file) return;
   viewerContainer.style.display='flex';
-  [pdfCanvas,docOutput,docxContainer,odtContainer,pptxContainer].forEach(el=>el.style.display='none');
+  [pdfCanvas, docOutput, docxContainer, odtContainer, pptxContainer].forEach(el=>el.style.display='none');
 
-  const reader=new FileReader();
-  reader.onload=async()=>{
-    const name=file.name.toLowerCase();
-    try{
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const name = file.name.toLowerCase();
+    try {
       if(name.endsWith('.pdf')){
-        currentDocType="pdf";pdfCanvas.style.display='block';
-        const pdf=await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
-        const page=await pdf.getPage(1);currentPdf=pdf;currentPdfPage=page;pdfScale=1.0;
+        currentDocType="pdf"; pdfCanvas.style.display='block';
+        const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
+        const page = await pdf.getPage(1);
+        currentPdf = pdf; currentPdfPage = page; pdfScale=1.0;
         await renderPdfPage(page,pdfScale);
         pdfCanvas.onwheel=async evt=>{
-          evt.preventDefault();pdfScale+=evt.deltaY*-0.001;
+          evt.preventDefault(); pdfScale+=evt.deltaY*-0.001;
           pdfScale=Math.min(Math.max(0.2,pdfScale),5);
           await renderPdfPage(currentPdfPage,pdfScale);
         };
 
       } else if(name.endsWith('.docx')){
-        currentDocType="docx";docxContainer.style.display='block';docxContainer.innerHTML='';
-        const docx=new DocxPreview();docx.renderAsync(reader.result,docxContainer);
+        currentDocType="docx"; docxContainer.style.display='block';
+        renderDocx(reader.result);
 
       } else if(name.endsWith('.odt')){
-        currentDocType="odt";odtContainer.style.display='block';odtContainer.innerHTML='';
+        currentDocType="odt"; odtContainer.style.display='block'; odtContainer.innerHTML='';
         const odfCanvas=new odf.OdfCanvas(odtContainer);
         const blob=new Blob([reader.result],{type:"application/vnd.oasis.opendocument.text"});
-        const url=URL.createObjectURL(blob);await odfCanvas.load(url);
+        const url=URL.createObjectURL(blob); await odfCanvas.load(url);
 
       } else if(name.endsWith('.xlsx')||name.endsWith('.ods')){
-        currentDocType="xls";docOutput.style.display='block';
-        const wb=XLSX.read(reader.result,{type:'array'});docOutput.innerHTML='';
+        currentDocType="xls"; docOutput.style.display='block'; docOutput.innerHTML='';
+        const wb=XLSX.read(reader.result,{type:'array'});
         wb.SheetNames.forEach(sheet=>{
           const html=XLSX.utils.sheet_to_html(wb.Sheets[sheet]);
-          const div=document.createElement('div');div.innerHTML=html;docOutput.appendChild(div);
+          const div=document.createElement('div'); div.innerHTML=html; docOutput.appendChild(div);
         });
 
       } else if(name.endsWith('.pptx')){
-        currentDocType="ppt";pptxContainer.style.display='block';pptxContainer.innerHTML='';
-        loadPptx(reader.result,pptxContainer); // divs2slides.js init
+        currentDocType="ppt"; pptxContainer.style.display='block';
+        renderPptx(reader.result);
 
       } else if(name.endsWith('.txt')){
-        currentDocType="txt";docOutput.style.display='block';
+        currentDocType="txt"; docOutput.style.display='block';
         const textDecoder=new TextDecoder("utf-8");
         docOutput.textContent=textDecoder.decode(reader.result);
 
-      } else {showError('Format nicht unterstützt');return;}
+      } else {showError('Format nicht unterstützt'); return;}
       fullscreenBtn.style.display='flex';
-    }catch(err){showError(err.message);console.error(err);}
+    } catch(err){ showError(err.message); console.error(err); }
   };
   reader.readAsArrayBuffer(file);
 });
 
 // Fullscreen Toggle
-fullscreenBtn.addEventListener('click',async()=>{
+fullscreenBtn.addEventListener('click', async () => {
   if(!isFullscreen){
-    viewerContainer.style.position='fixed';viewerContainer.style.top='0';viewerContainer.style.left='0';
-    viewerContainer.style.width='100%';viewerContainer.style.height='100%';
-    viewerContainer.style.maxWidth='100%';viewerContainer.style.maxHeight='100%';
-    viewerContainer.style.overflow='auto';uploadBar.style.display='none';
+    viewerContainer.style.position='fixed'; viewerContainer.style.top='0'; viewerContainer.style.left='0';
+    viewerContainer.style.width='100%'; viewerContainer.style.height='100%';
+    viewerContainer.style.maxWidth='100%'; viewerContainer.style.maxHeight='100%';
+    viewerContainer.style.overflow='auto'; uploadBar.style.display='none';
     if(currentDocType==="pdf"&&currentPdfPage){await renderPdfPage(currentPdfPage,pdfScale);}
     isFullscreen=true;
   } else {
-    viewerContainer.style.position='relative';viewerContainer.style.width='';viewerContainer.style.height='';
-    viewerContainer.style.maxWidth='90%';viewerContainer.style.maxHeight='80%';
-    viewerContainer.style.overflow='auto';uploadBar.style.display='flex';
-    if(currentDocType==="pdf"&&currentPdfPage){pdfScale=1.0;await renderPdfPage(currentPdfPage,pdfScale);}
+    viewerContainer.style.position='relative'; viewerContainer.style.width=''; viewerContainer.style.height='';
+    viewerContainer.style.maxWidth='90%'; viewerContainer.style.maxHeight='80%';
+    viewerContainer.style.overflow='auto'; uploadBar.style.display='flex';
+    if(currentDocType==="pdf"&&currentPdfPage){pdfScale=1.0; await renderPdfPage(currentPdfPage,pdfScale);}
     isFullscreen=false;
   }
 });
