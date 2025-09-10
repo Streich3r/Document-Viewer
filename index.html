@@ -57,6 +57,23 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
 }
+
+/* Fullscreen-Icon */
+#fullscreenBtn {
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  background:rgba(0,0,0,0.8);
+  border:2px solid #0f0;
+  border-radius:50%;
+  width:48px; height:48px;
+  display:none;
+  justify-content:center; align-items:center;
+  cursor:pointer;
+  color:#0f0;
+  font-size:1.2rem;
+  z-index:100;
+}
 </style>
 </head>
 <body>
@@ -75,6 +92,9 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 
   <div id="errorBox"></div>
 </div>
+
+<!-- Fullscreen Button -->
+<div id="fullscreenBtn">⛶</div>
 
 <!-- Matrix Hintergrund -->
 <script>
@@ -120,14 +140,18 @@ const docOutput = document.getElementById('docOutput');
 const ctxPDF = pdfCanvas.getContext('2d');
 const errorBox = document.getElementById('errorBox');
 const viewerContainer = document.getElementById('viewerContainer');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
 
 let currentPdf = null;
 let currentPdfPage = null;
 let pdfScale = 1.0;
+let isFullscreen = false;
+let currentDocType = null;
 
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
+  fullscreenBtn.style.display='none';
   setTimeout(()=>{errorBox.style.display='none';},5000);
 }
 
@@ -156,6 +180,7 @@ fileInput.addEventListener('change', async e=>{
     const name = file.name.toLowerCase();
     try{
       if(name.endsWith('.pdf')){
+        currentDocType="pdf";
         pdfCanvas.style.display='block';
 
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
@@ -167,19 +192,21 @@ fileInput.addEventListener('change', async e=>{
         await renderPdfPage(page, pdfScale);
 
         // Zoom mit Mausrad
-        pdfCanvas.addEventListener('wheel', async evt=>{
+        pdfCanvas.onwheel = async evt=>{
           evt.preventDefault();
           pdfScale += evt.deltaY * -0.001;
           pdfScale = Math.min(Math.max(0.2, pdfScale), 5);
           await renderPdfPage(currentPdfPage, pdfScale);
-        });
+        };
 
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
+        currentDocType="doc";
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
 
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
+        currentDocType="xls";
         docOutput.style.display='block';
         const wb = XLSX.read(reader.result,{type:'array'});
         docOutput.innerHTML='';
@@ -191,26 +218,61 @@ fileInput.addEventListener('change', async e=>{
         });
 
       } else if(name.endsWith('.pptx')){
+        currentDocType="ppt";
         docOutput.style.display='block';
         docOutput.textContent = "PPTX Vorschau: einfache Unterstützung. (pptxjs Integration nötig)";
 
       } else if(name.endsWith('.txt')){
+        currentDocType="txt";
         docOutput.style.display='block';
         const textDecoder = new TextDecoder("utf-8");
         docOutput.textContent = textDecoder.decode(reader.result);
 
       } else {
         showError('Format nicht unterstützt');
+        return;
       }
+
+      fullscreenBtn.style.display='flex'; // nur anzeigen, wenn erfolgreich
     } catch(err){
       showError(err.message);
       console.error(err);
     }
   };
-  if(file.name.toLowerCase().endsWith('.txt')){
-    reader.readAsArrayBuffer(file);
+  reader.readAsArrayBuffer(file);
+});
+
+// Fullscreen Toggle
+fullscreenBtn.addEventListener('click', async ()=>{
+  if(!isFullscreen){
+    viewerContainer.style.position='fixed';
+    viewerContainer.style.top='0';
+    viewerContainer.style.left='0';
+    viewerContainer.style.width='100%';
+    viewerContainer.style.height='100%';
+    viewerContainer.style.maxWidth='100%';
+    viewerContainer.style.maxHeight='100%';
+
+    if(currentDocType==="pdf" && currentPdfPage){
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const viewport = currentPdfPage.getViewport({scale:1});
+      const scaleX = screenWidth / viewport.width;
+      const scaleY = screenHeight / viewport.height;
+      const scale = Math.min(scaleX, scaleY);
+      await renderPdfPage(currentPdfPage, scale);
+    }
+    isFullscreen = true;
   } else {
-    reader.readAsArrayBuffer(file);
+    viewerContainer.style.position='relative';
+    viewerContainer.style.width='';
+    viewerContainer.style.height='';
+    viewerContainer.style.maxWidth='90%';
+    viewerContainer.style.maxHeight='80%';
+    if(currentDocType==="pdf" && currentPdfPage){
+      await renderPdfPage(currentPdfPage, 1.0);
+    }
+    isFullscreen = false;
   }
 });
 </script>
