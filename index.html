@@ -60,20 +60,6 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
 }
-
-.fullscreen-mode {
-  position:fixed !important;
-  top:0; left:0; width:100%; height:100%;
-  border-radius:0;
-  background: rgba(0,0,0,0.95);
-  z-index:9998;
-  display:flex; justify-content:center; align-items:center; flex-direction:column;
-}
-
-#fullscreenContent {
-  width:100%; height:100%; display:flex; justify-content:center; align-items:center;
-  overflow:auto;
-}
 </style>
 </head>
 <body>
@@ -91,7 +77,6 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   </div>
 
   <button id="fullscreenBtn">⛶</button>
-
   <div id="errorBox"></div>
 </div>
 
@@ -142,6 +127,9 @@ const fullscreenBtn = document.getElementById('fullscreenBtn');
 const viewerContainer = document.getElementById('viewerContainer');
 
 let isFullscreen = false;
+let currentPdf = null;
+let currentPdfPage = null;
+let currentViewport = null;
 
 // Fehleranzeige
 function showError(msg){
@@ -152,23 +140,30 @@ function showError(msg){
 }
 
 // Fullscreen Toggle
-fullscreenBtn.addEventListener('click',()=>{
+fullscreenBtn.addEventListener('click', async ()=>{
   if(!isFullscreen){
     viewerContainer.classList.add('fullscreen-mode');
-    pdfCanvas.style.width='100%';
-    pdfCanvas.style.height='100%';
-    docOutput.style.width='100%';
-    docOutput.style.height='100%';
-    pdfCanvas.parentElement.style.overflow='auto'; // Scroll/Zoom möglich
-    isFullscreen=true;
+    pdfCanvas.style.width = window.innerWidth * 0.95 + 'px';
+    pdfCanvas.style.height = window.innerHeight * 0.95 + 'px';
+    docOutput.style.width = window.innerWidth * 0.95 + 'px';
+    docOutput.style.height = window.innerHeight * 0.95 + 'px';
+    viewerContainer.style.overflow = 'auto';
+    if(currentPdf && currentPdfPage){
+      const viewport = currentPdfPage.getViewport({scale:1});
+      const scaleX = (window.innerWidth*0.95)/viewport.width;
+      const scaleY = (window.innerHeight*0.95)/viewport.height;
+      const scale = Math.min(scaleX, scaleY);
+      const scaledViewport = currentPdfPage.getViewport({scale: scale});
+      await currentPdfPage.render({canvasContext:ctxPDF,viewport:scaledViewport}).promise;
+    }
+    isFullscreen = true;
   } else {
     viewerContainer.classList.remove('fullscreen-mode');
-    pdfCanvas.style.width='100%';
-    pdfCanvas.style.height='auto';
-    docOutput.style.width='100%';
-    docOutput.style.height='auto';
-    pdfCanvas.parentElement.style.overflow='auto';
-    isFullscreen=false;
+    pdfCanvas.style.width = currentViewport.width + 'px';
+    pdfCanvas.style.height = currentViewport.height + 'px';
+    docOutput.style.width = '100%';
+    docOutput.style.height = 'auto';
+    isFullscreen = false;
   }
 });
 
@@ -177,10 +172,10 @@ fileInput.addEventListener('change', async e=>{
   const file = e.target.files[0];
   if(!file) return;
 
-  viewerContainer.style.display='flex'; // Viewer aktivieren
+  viewerContainer.style.display='flex';
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
-  fullscreenBtn.style.display='none'; // erst nach Erfolg
+  fullscreenBtn.style.display='none';
 
   const reader = new FileReader();
   reader.onload = async ()=>{
@@ -190,11 +185,14 @@ fileInput.addEventListener('change', async e=>{
         pdfCanvas.style.display='block';
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
         const page = await pdf.getPage(1);
+        currentPdf = pdf;
+        currentPdfPage = page;
         const viewport = page.getViewport({scale:1.2});
+        currentViewport = viewport;
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
         await page.render({canvasContext:ctxPDF,viewport}).promise;
-        fullscreenBtn.style.display='flex'; // nach Erfolg sichtbar
+        fullscreenBtn.style.display='flex';
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
