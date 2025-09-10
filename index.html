@@ -3,31 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Matrix PDF Viewer</title>
+<title>Matrix Document Viewer</title>
 <style>
 html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
 canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
 
-#overlay { position:absolute; top:0; left:0; width:100%; height:100%; backdrop-filter: blur(6px); background: rgba(0,0,0,0.6); z-index:1; display:flex; justify-content:center; align-items:center; flex-direction:column; }
+#overlay {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,0.6);
+  z-index:1;
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
+}
 
-#viewerContainer { position:relative; width:90%; max-width:800px; max-height:70%; background: rgba(0,0,0,0.8); border-radius:16px; display:flex; justify-content:center; align-items:center; overflow:auto; }
+#viewerContainer {
+  position:relative;
+  width:90%; max-width:800px; max-height:70%;
+  background: rgba(0,0,0,0.8);
+  border-radius:16px;
+  display:flex; justify-content:center; align-items:center;
+  overflow:auto;
+  flex-direction:column;
+  display:none; /* erst nach Upload sichtbar */
+}
 
-#pdfCanvas, #docOutput { width:100%; border-radius:12px; }
+#pdfCanvas, #docOutput {
+  width:100%;
+  border-radius:12px;
+}
 
-#uploadBar { position:absolute; bottom:20px; display:flex; justify-content:center; align-items:center; gap:10px; width:100%; }
+#uploadBar {
+  position:absolute;
+  bottom:20px;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:10px;
+  width:100%;
+}
 
-#fileInput { background:#000; border:2px solid #0f0; color:#0f0; padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer; }
-
-#fileInput::-webkit-file-upload-button { color:#0f0; } /* optional grün Button-Text */
+#fileInput {
+  background:#000; border:2px solid #0f0; color:#0f0;
+  padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer;
+}
 
 #fileName { color:white; font-size:1rem; }
 
-#fullscreenBtn { width:40px; height:40px; border-radius:50%; background:#0f0; color:black; border:none; cursor:pointer; font-weight:bold; font-size:20px; display:flex; align-items:center; justify-content:center; }
+#fullscreenBtn {
+  width:40px; height:40px; border-radius:50%;
+  background:#0f0; color:black; border:none; cursor:pointer;
+  font-weight:bold; font-size:20px; display:flex; align-items:center; justify-content:center;
+}
 
-#errorBox { position:absolute; bottom:70px; background: rgba(255,0,0,0.8); color:white; padding:0.4rem 0.8rem; border-radius:8px; display:none; font-size:0.8rem; }
+#errorBox {
+  position:absolute; bottom:70px; background: rgba(255,0,0,0.8);
+  color:white; padding:0.4rem 0.8rem; border-radius:8px;
+  display:none; font-size:0.8rem;
+}
 
-.fullscreen-mode { position:fixed !important; top:0; left:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; background: rgba(0,0,0,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; }
-#fullscreenModeContent { width:95%; height:95%; display:flex; justify-content:center; align-items:center; flex-direction:column; overflow:auto; }
+.fullscreen-mode {
+  position:fixed !important;
+  top:0; left:0; width:100%; height:100%;
+  max-width:none; max-height:none;
+  border-radius:0;
+  background: rgba(0,0,0,0.95);
+  z-index:9999;
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
+}
+
+#fullscreenContent {
+  width:95%; height:95%; display:flex; justify-content:center; align-items:center; flex-direction:column; overflow:auto;
+}
 </style>
 </head>
 <body>
@@ -56,10 +102,12 @@ const ctx = canvas.getContext('2d');
 function resizeCanvas(){canvas.width=window.innerWidth; canvas.height=window.innerHeight;}
 resizeCanvas();
 window.addEventListener('resize',resizeCanvas);
+
 const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=+/<>*';
 const fontSize=16;
 let columns=Math.floor(canvas.width/fontSize);
 let drops=new Array(columns).fill(0);
+
 function drawMatrix(){
   ctx.fillStyle='rgba(0,0,0,0.05)';
   ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -74,8 +122,12 @@ function drawMatrix(){
 setInterval(drawMatrix,35);
 </script>
 
-<!-- PDF.js -->
+<!-- Libraries -->
 <script src="pdf.js"></script>
+<script src="mammoth.browser.min.js"></script>
+<script src="xlsx.full.min.js"></script>
+<script src="jszip.min.js"></script>
+<script src="pptxjs.min.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
 </script>
@@ -92,6 +144,7 @@ const viewerContainer = document.getElementById('viewerContainer');
 
 let isFullscreen = false;
 
+// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
@@ -117,11 +170,12 @@ fullscreenBtn.addEventListener('click',()=>{
   }
 });
 
-// PDF Handling
+// File Upload Handling
 fileInput.addEventListener('change', async e=>{
   const file = e.target.files[0];
   if(!file) return;
-  fileNameDisplay.textContent = file.name;
+  fileNameDisplay.textContent = file.name; // native Name in weiß
+  viewerContainer.style.display='flex'; // Viewer aktivieren
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
   const reader = new FileReader();
