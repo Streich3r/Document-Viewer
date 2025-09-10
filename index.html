@@ -2,40 +2,52 @@
 <html lang="de">
 <head>
   <meta charset="utf-8" />
-  <title>PDF Test</title>
+  <title>PDF Debug</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body { background: #111; color: #0f0; font-family: monospace; }
-    #output canvas { display:block; margin:1rem auto; border:1px solid #0f0; }
-  </style>
 </head>
 <body>
-  <h2>📄 PDF Test</h2>
+  <h2>📄 PDF Debug Test</h2>
   <input type="file" id="fileInput" />
   <div id="output"></div>
 
   <script src="pdf.min.js"></script>
   <script>
+    // Worker definieren
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
-    document.getElementById("fileInput").addEventListener("change", async (e) => {
+    const fileInput = document.getElementById("fileInput");
+    const output = document.getElementById("output");
+
+    fileInput.addEventListener("change", async (e) => {
       const file = e.target.files[0];
-      if (!file) return;
+      if (!file) {
+        alert("Keine Datei gewählt");
+        return;
+      }
+      alert("Datei gewählt: " + file.name);
+
       const reader = new FileReader();
       reader.onload = async () => {
-        const data = new Uint8Array(reader.result);
-        const pdf = await pdfjsLib.getDocument({ data }).promise;
-        const output = document.getElementById("output");
-        output.innerHTML = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.0 });
-          const canvas = document.createElement("canvas");
-          const ctx = canvas.getContext("2d");
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          output.appendChild(canvas);
+        try {
+          const data = new Uint8Array(reader.result);
+          console.log("Starte PDF laden...");
+          const pdf = await pdfjsLib.getDocument({ data }).promise;
+          alert("PDF geladen: " + pdf.numPages + " Seiten");
+          output.innerHTML = "";
+
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({ scale: 1.0 });
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            output.appendChild(canvas);
+          }
+        } catch (err) {
+          console.error("PDF Fehler", err);
+          alert("Fehler: " + err.message);
         }
       };
       reader.readAsArrayBuffer(file);
