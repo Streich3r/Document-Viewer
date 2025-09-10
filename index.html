@@ -18,13 +18,16 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 
 #fileInput { background:#000; border:2px solid #0f0; color:#0f0; padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer; }
 
+#fileInput::-webkit-file-upload-button { color:#0f0; } /* optional grün Button-Text */
+
 #fileName { color:white; font-size:1rem; }
 
 #fullscreenBtn { width:40px; height:40px; border-radius:50%; background:#0f0; color:black; border:none; cursor:pointer; font-weight:bold; font-size:20px; display:flex; align-items:center; justify-content:center; }
 
 #errorBox { position:absolute; bottom:70px; background: rgba(255,0,0,0.8); color:white; padding:0.4rem 0.8rem; border-radius:8px; display:none; font-size:0.8rem; }
 
-.fullscreen-mode { position:fixed !important; top:0; left:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; background: rgba(0,0,0,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; }
+.fullscreen-mode { position:fixed !important; top:0; left:0; width:100%; height:100%; max-width:none; max-height:none; border-radius:0; background: rgba(0,0,0,0.95); z-index:9999; display:flex; justify-content:center; align-items:center; flex-direction:column; }
+#fullscreenModeContent { width:95%; height:95%; display:flex; justify-content:center; align-items:center; flex-direction:column; overflow:auto; }
 </style>
 </head>
 <body>
@@ -99,9 +102,17 @@ function showError(msg){
 fullscreenBtn.addEventListener('click',()=>{
   if(!isFullscreen){
     viewerContainer.classList.add('fullscreen-mode');
+    pdfCanvas.style.width='95%';
+    pdfCanvas.style.height='95%';
+    docOutput.style.width='95%';
+    docOutput.style.height='95%';
     isFullscreen=true;
   } else {
     viewerContainer.classList.remove('fullscreen-mode');
+    pdfCanvas.style.width='100%';
+    pdfCanvas.style.height='auto';
+    docOutput.style.width='100%';
+    docOutput.style.height='auto';
     isFullscreen=false;
   }
 });
