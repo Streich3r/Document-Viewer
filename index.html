@@ -17,8 +17,8 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 }
 
 #viewerContainer {
-  display:none; /* nach Upload sichtbar */
-  background: rgba(0,0,0,0.8);
+  display:none;
+  background: rgba(0,0,0,0.85);
   border-radius:16px;
   max-width:90%;
   max-height:80%;
@@ -26,11 +26,15 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   justify-content:center;
   align-items:center;
   flex-direction:column;
+  padding:10px;
 }
 
 #pdfCanvas, #docOutput {
   border-radius:12px;
   display:block;
+  background:#111;
+  color:white;
+  padding:10px;
 }
 
 #uploadBar {
@@ -62,7 +66,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 <div id="overlay">
   <div id="viewerContainer">
     <canvas id="pdfCanvas"></canvas>
-    <div id="docOutput" style="display:none; color:white; padding:10px;"></div>
+    <div id="docOutput" style="display:none;"></div>
   </div>
 
   <div id="uploadBar">
@@ -119,14 +123,23 @@ const viewerContainer = document.getElementById('viewerContainer');
 
 let currentPdf = null;
 let currentPdfPage = null;
-let originalViewport = null;
-let currentDocType = null;
-let pdfScale = 1; // für Zoom
+let pdfScale = 1.0;
 
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
   setTimeout(()=>{errorBox.style.display='none';},5000);
+}
+
+// PDF render helper
+async function renderPdfPage(page, scale){
+  const viewport = page.getViewport({ scale: scale });
+  pdfCanvas.width = viewport.width;
+  pdfCanvas.height = viewport.height;
+  await page.render({
+    canvasContext: ctxPDF,
+    viewport: viewport
+  }).promise;
 }
 
 // File Upload Handling
@@ -135,9 +148,6 @@ fileInput.addEventListener('change', async e=>{
   if(!file) return;
 
   viewerContainer.style.display='flex';
-  viewerContainer.style.justifyContent='center';
-  viewerContainer.style.alignItems='center';
-
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
 
@@ -146,40 +156,30 @@ fileInput.addEventListener('change', async e=>{
     const name = file.name.toLowerCase();
     try{
       if(name.endsWith('.pdf')){
-        currentDocType="pdf";
         pdfCanvas.style.display='block';
 
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
         const page = await pdf.getPage(1);
         currentPdf = pdf;
         currentPdfPage = page;
+        pdfScale = 1.0;
 
-        const viewport = page.getViewport({scale:pdfScale});
-        originalViewport = viewport;
-        pdfCanvas.width = viewport.width;
-        pdfCanvas.height = viewport.height;
+        await renderPdfPage(page, pdfScale);
 
-        await page.render({canvasContext:ctxPDF, viewport}).promise;
-
-        // Zoom via Wheel
+        // Zoom mit Mausrad
         pdfCanvas.addEventListener('wheel', async evt=>{
           evt.preventDefault();
           pdfScale += evt.deltaY * -0.001;
-          pdfScale = Math.min(Math.max(0.2, pdfScale),5);
-          const vp = currentPdfPage.getViewport({scale:pdfScale});
-          pdfCanvas.width = vp.width;
-          pdfCanvas.height = vp.height;
-          await currentPdfPage.render({canvasContext:ctxPDF, viewport:vp}).promise;
+          pdfScale = Math.min(Math.max(0.2, pdfScale), 5);
+          await renderPdfPage(currentPdfPage, pdfScale);
         });
 
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
-        currentDocType="docx";
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
 
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
-        currentDocType="xlsx";
         docOutput.style.display='block';
         const wb = XLSX.read(reader.result,{type:'array'});
         docOutput.innerHTML='';
@@ -191,17 +191,27 @@ fileInput.addEventListener('change', async e=>{
         });
 
       } else if(name.endsWith('.pptx')){
-        currentDocType="pptx";
         docOutput.style.display='block';
-        showError('PPTX Viewer: Vorschau nur, Implementation hängt von pptxjs ab.');
+        docOutput.textContent = "PPTX Vorschau: einfache Unterstützung. (pptxjs Integration nötig)";
 
-      } else showError('Format nicht unterstützt');
+      } else if(name.endsWith('.txt')){
+        docOutput.style.display='block';
+        const textDecoder = new TextDecoder("utf-8");
+        docOutput.textContent = textDecoder.decode(reader.result);
+
+      } else {
+        showError('Format nicht unterstützt');
+      }
     } catch(err){
       showError(err.message);
       console.error(err);
     }
   };
-  reader.readAsArrayBuffer(file);
+  if(file.name.toLowerCase().endsWith('.txt')){
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsArrayBuffer(file);
+  }
 });
 </script>
 </body>
