@@ -1,24 +1,26 @@
-<!doctype html>
-<html lang="de">
-<head>
-  <meta charset="utf-8" />
-  <title>Datei Test</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-</head>
-<body>
-  <h2>🔍 Test: Input</h2>
-  <input type="file" id="fileInput" />
-  <div id="output"></div>
+<input type="file" id="fileInput">
+<div id="output"></div>
 
-  <script>
-    document.getElementById("fileInput").addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (!file) {
-        alert("❌ Keine Datei gewählt");
-      } else {
-        alert("✅ Datei erkannt: " + file.name);
+<script src="pdf.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
+  const fileInput = document.getElementById("fileInput");
+  const output = document.getElementById("output");
+
+  fileInput.addEventListener("change", async e => {
+    const file = e.target.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const pdf = await pdfjsLib.getDocument({data: new Uint8Array(reader.result)}).promise;
+        output.innerHTML = `Seiten: ${pdf.numPages}`;
+      } catch(err) {
+        output.innerHTML = `<span style="color:red">${err.message}</span>`;
+        console.error(err);
       }
-    });
-  </script>
-</body>
-</html>
+    };
+    reader.readAsArrayBuffer(file);
+  });
+</script>
