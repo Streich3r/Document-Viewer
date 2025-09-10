@@ -12,6 +12,7 @@
 html, body { margin:0; padding:0; height:100%; background:black; font-family: monospace; overflow:hidden; }
 canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; display:block; }
 
+/* Overlay */
 #overlay {
   position:absolute; top:0; left:0; width:100%; height:100%;
   backdrop-filter: blur(6px);
@@ -20,6 +21,7 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 
+/* Viewer Container */
 #viewerContainer {
   display:none;
   background: rgba(0,0,0,0.85);
@@ -32,26 +34,32 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   flex-direction:column;
   padding:10px;
   box-sizing: border-box;
+  border:2px solid #0f0; /* Grüner Rand für den Viewer */
 }
 
+/* PDF-Canvas */
 #pdfCanvas {
   border-radius:12px;
-  border:2px solid #0f0; /* grüner Rand für PDF */
+  border:2px solid #333; /* Dark Mode Rand für PDF-Dokument */
   background:#111;
   display:none;
   box-sizing:border-box;
+  margin:5px;
 }
 
+/* Andere Dokumente */
 #docOutput, #docxContainer, #odtContainer, #pptxContainer {
   border-radius:12px;
-  border:2px solid #333; /* Dark Mode Rand für andere Dokumente */
+  border:2px solid #333; /* Dark Mode Rand für Dokumente */
   background:#111;
   color:white;
   padding:10px;
   display:none;
   box-sizing:border-box;
+  margin:5px;
 }
 
+/* Upload Bar */
 #uploadBar {
   position:absolute;
   bottom:20px;
@@ -62,17 +70,20 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   width:100%;
 }
 
+/* Datei Input */
 #fileInput {
   background:#000; border:2px solid #0f0; color:#0f0;
   padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer;
 }
 
+/* Error Box */
 #errorBox {
   position:absolute; bottom:90px; background: rgba(255,0,0,0.8);
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
 }
 
+/* Fullscreen Button */
 #fullscreenBtn {
   position:fixed; bottom:20px; right:20px;
   background:rgba(0,0,0,0.8);
