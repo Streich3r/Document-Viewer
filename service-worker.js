@@ -3,6 +3,7 @@ const urlsToCache = [
   "index.html",
   "manifest.json",
   "pdf.js",
+  "pdf.worker.min.js",
   "mammoth.browser.min.js",
   "xlsx.full.min.js",
   "jszip.min.js",
