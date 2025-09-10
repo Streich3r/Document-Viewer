@@ -1,36 +1,186 @@
-<input type="file" id="fileInput">
-<div id="output"></div>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrix PDF Viewer</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: black;
+    font-family: monospace;
+  }
+  canvas#matrixCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    display: block;
+  }
+  #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    backdrop-filter: blur(6px);
+    background: rgba(0,0,0,0.6);
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  #viewerContainer {
+    position: relative;
+    width: 90%;
+    max-width: 800px;
+    height: 70%;
+    background: rgba(0,0,0,0.8);
+    border-radius: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+  }
+  #pdfCanvas {
+    width: 100%;
+    border-radius: 12px;
+  }
+  #fullscreenBtn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: #0f0;
+    color: black;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #uploadBar {
+    position: absolute;
+    bottom: 20px;
+    text-align: center;
+    width: 100%;
+  }
+  #fileInput {
+    background: #000;
+    border: 2px solid #0f0;
+    color: #0f0;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  #errorBox {
+    position: absolute;
+    bottom: 70px;
+    background: rgba(255,0,0,0.8);
+    color: white;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    display: none;
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
 
+<canvas id="matrixCanvas"></canvas>
+
+<div id="overlay">
+  <div id="viewerContainer">
+    <canvas id="pdfCanvas"></canvas>
+    <button id="fullscreenBtn">⛶</button>
+  </div>
+  <div id="errorBox"></div>
+  <div id="uploadBar">
+    <input type="file" id="fileInput" />
+  </div>
+</div>
+
+<!-- Matrix Hintergrund -->
+<script>
+const canvas = document.getElementById('matrixCanvas');
+const ctx = canvas.getContext('2d');
+function resizeCanvas(){canvas.width=window.innerWidth; canvas.height=window.innerHeight;}
+resizeCanvas();
+window.addEventListener('resize',resizeCanvas);
+
+const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=+/<>*';
+const fontSize=16;
+let columns=Math.floor(canvas.width/fontSize);
+let drops=new Array(columns).fill(0);
+
+function drawMatrix(){
+  ctx.fillStyle='rgba(0,0,0,0.05)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#0f0';
+  ctx.font=fontSize+'px monospace';
+  for(let i=0;i<drops.length;i++){
+    const text=letters.charAt(Math.floor(Math.random()*letters.length));
+    ctx.fillText(text,i*fontSize,drops[i]*fontSize);
+    if(drops[i]*fontSize>canvas.height){drops[i]=0;} else{drops[i]++;}
+  }
+}
+setInterval(drawMatrix,35);
+</script>
+
+<!-- PDF.js -->
 <script src="pdf.js"></script>
 <script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
-  const fileInput = document.getElementById("fileInput");
-  const output = document.getElementById("output");
-
-  fileInput.addEventListener("change", async e => {
-    const file = e.target.files[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      try {
-        const pdf = await pdfjsLib.getDocument({data: new Uint8Array(reader.result)}).promise;
-        output.innerHTML = ''; // vorherige Inhalte löschen
-        for(let i=1; i<=pdf.numPages; i++){
-          const page = await pdf.getPage(i);
-          const viewport = page.getViewport({scale: 1.2}); // Zoom
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          await page.render({canvasContext: ctx, viewport}).promise;
-          output.appendChild(canvas);
-        }
-      } catch(err) {
-        output.innerHTML = `<span style="color:red">${err.message}</span>`;
-        console.error(err);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  });
+pdfjsLib.GlobalWorkerOptions.workerSrc='pdf.worker.min.js';
 </script>
+
+<script>
+const fileInput = document.getElementById('fileInput');
+const pdfCanvas = document.getElementById('pdfCanvas');
+const ctxPDF = pdfCanvas.getContext('2d');
+const errorBox = document.getElementById('errorBox');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+function showError(msg){
+  errorBox.style.display='block';
+  errorBox.textContent=msg;
+  setTimeout(()=>{errorBox.style.display='none';},5000);
+}
+
+fileInput.addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async ()=>{
+    try{
+      const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
+      let pageNum = 1; // nur erste Seite zeigen
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({scale:1.2});
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      await page.render({canvasContext:ctxPDF,viewport}).promise;
+    }catch(err){
+      showError('PDF Fehler: '+err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+// Fullscreen
+fullscreenBtn.addEventListener('click', ()=>{
+  if(pdfCanvas.requestFullscreen){pdfCanvas.requestFullscreen();}
+  else if(pdfCanvas.webkitRequestFullscreen){pdfCanvas.webkitRequestFullscreen();}
+});
+</script>
+
+</body>
+</html>
