@@ -17,19 +17,20 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 }
 
 #viewerContainer {
-  position:relative;
+  display:none; /* nach Upload sichtbar */
   background: rgba(0,0,0,0.8);
   border-radius:16px;
-  display:flex; justify-content:center; align-items:center;
-  overflow:auto;
-  flex-direction:column;
-  display:none; /* erst nach Upload sichtbar */
   max-width:90%;
   max-height:80%;
+  overflow:auto;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
 }
 
 #pdfCanvas, #docOutput {
   border-radius:12px;
+  display:block;
 }
 
 #uploadBar {
@@ -47,25 +48,10 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer;
 }
 
-#fullscreenBtn {
-  width:50px; height:50px; border-radius:50%;
-  background:#0f0; color:black; border:none; cursor:pointer;
-  font-weight:bold; font-size:22px; display:flex; align-items:center; justify-content:center;
-  position:fixed; bottom:30px; right:30px; z-index:99999;
-  display:none; /* erst nach Upload */
-}
-
 #errorBox {
   position:absolute; bottom:90px; background: rgba(255,0,0,0.8);
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
-}
-
-.fullscreen-mode {
-  position:fixed !important;
-  top:0; left:0; width:100%; height:100%;
-  border-radius:0;
-  display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 </style>
 </head>
@@ -76,14 +62,13 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 <div id="overlay">
   <div id="viewerContainer">
     <canvas id="pdfCanvas"></canvas>
-    <div id="docOutput" style="display:none;"></div>
+    <div id="docOutput" style="display:none; color:white; padding:10px;"></div>
   </div>
 
   <div id="uploadBar">
     <input type="file" id="fileInput" />
   </div>
 
-  <button id="fullscreenBtn">⛶</button>
   <div id="errorBox"></div>
 </div>
 
@@ -130,64 +115,19 @@ const pdfCanvas = document.getElementById('pdfCanvas');
 const docOutput = document.getElementById('docOutput');
 const ctxPDF = pdfCanvas.getContext('2d');
 const errorBox = document.getElementById('errorBox');
-const fullscreenBtn = document.getElementById('fullscreenBtn');
 const viewerContainer = document.getElementById('viewerContainer');
 
-let isFullscreen = false;
 let currentPdf = null;
 let currentPdfPage = null;
 let originalViewport = null;
 let currentDocType = null;
+let pdfScale = 1; // für Zoom
 
-// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
-  fullscreenBtn.style.display='none';
   setTimeout(()=>{errorBox.style.display='none';},5000);
 }
-
-// Fullscreen Toggle
-fullscreenBtn.addEventListener('click', async ()=>{
-  const screenWidth = window.innerWidth;
-  const screenHeight = window.innerHeight;
-
-  if(!isFullscreen){
-    viewerContainer.classList.add('fullscreen-mode');
-
-    if(currentDocType==="pdf" && currentPdf && currentPdfPage){
-      const viewport = currentPdfPage.getViewport({scale:1});
-      const scaleX = screenWidth / viewport.width;
-      const scaleY = screenHeight / viewport.height;
-      const scale = Math.min(scaleX, scaleY);
-      const scaledViewport = currentPdfPage.getViewport({scale: scale});
-
-      pdfCanvas.width = scaledViewport.width;
-      pdfCanvas.height = scaledViewport.height;
-      await currentPdfPage.render({canvasContext: ctxPDF, viewport: scaledViewport}).promise;
-
-    } else {
-      docOutput.style.width = screenWidth + "px";
-      docOutput.style.height = screenHeight + "px";
-      docOutput.parentElement.style.overflow='auto';
-    }
-
-    isFullscreen = true;
-  } else {
-    viewerContainer.classList.remove('fullscreen-mode');
-
-    if(currentDocType==="pdf" && currentPdf && currentPdfPage){
-      pdfCanvas.width = originalViewport.width;
-      pdfCanvas.height = originalViewport.height;
-      await currentPdfPage.render({canvasContext: ctxPDF, viewport: originalViewport}).promise;
-    } else {
-      docOutput.style.width = "90%";
-      docOutput.style.height = "auto";
-    }
-
-    isFullscreen = false;
-  }
-});
 
 // File Upload Handling
 fileInput.addEventListener('change', async e=>{
@@ -195,15 +135,11 @@ fileInput.addEventListener('change', async e=>{
   if(!file) return;
 
   viewerContainer.style.display='flex';
-  viewerContainer.style.width='90%';
-  viewerContainer.style.height='auto';
-  viewerContainer.style.maxHeight='80%';
   viewerContainer.style.justifyContent='center';
   viewerContainer.style.alignItems='center';
 
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
-  fullscreenBtn.style.display='none';
 
   const reader = new FileReader();
   reader.onload = async ()=>{
@@ -212,24 +148,35 @@ fileInput.addEventListener('change', async e=>{
       if(name.endsWith('.pdf')){
         currentDocType="pdf";
         pdfCanvas.style.display='block';
+
         const pdf = await pdfjsLib.getDocument({data:new Uint8Array(reader.result)}).promise;
         const page = await pdf.getPage(1);
         currentPdf = pdf;
         currentPdfPage = page;
-        const viewport = page.getViewport({scale:1.2});
-        originalViewport = viewport;
 
+        const viewport = page.getViewport({scale:pdfScale});
+        originalViewport = viewport;
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
-        await page.render({canvasContext:ctxPDF,viewport}).promise;
-        fullscreenBtn.style.display='flex';
+
+        await page.render({canvasContext:ctxPDF, viewport}).promise;
+
+        // Zoom via Wheel
+        pdfCanvas.addEventListener('wheel', async evt=>{
+          evt.preventDefault();
+          pdfScale += evt.deltaY * -0.001;
+          pdfScale = Math.min(Math.max(0.2, pdfScale),5);
+          const vp = currentPdfPage.getViewport({scale:pdfScale});
+          pdfCanvas.width = vp.width;
+          pdfCanvas.height = vp.height;
+          await currentPdfPage.render({canvasContext:ctxPDF, viewport:vp}).promise;
+        });
 
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
         currentDocType="docx";
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
-        fullscreenBtn.style.display='flex';
 
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
         currentDocType="xlsx";
@@ -242,12 +189,12 @@ fileInput.addEventListener('change', async e=>{
           div.innerHTML = html;
           docOutput.appendChild(div);
         });
-        fullscreenBtn.style.display='flex';
 
       } else if(name.endsWith('.pptx')){
         currentDocType="pptx";
         docOutput.style.display='block';
-        showError('PPTX Viewer: Implementation hängt von pptxjs Version ab.');
+        showError('PPTX Viewer: Vorschau nur, Implementation hängt von pptxjs ab.');
+
       } else showError('Format nicht unterstützt');
     } catch(err){
       showError(err.message);
