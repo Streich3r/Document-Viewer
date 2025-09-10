@@ -24,6 +24,8 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   overflow:auto;
   flex-direction:column;
   display:none; /* erst nach Upload sichtbar */
+  max-width:90%;
+  max-height:80%;
 }
 
 #pdfCanvas, #docOutput {
@@ -57,6 +59,13 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   position:absolute; bottom:90px; background: rgba(255,0,0,0.8);
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
+}
+
+.fullscreen-mode {
+  position:fixed !important;
+  top:0; left:0; width:100%; height:100%;
+  border-radius:0;
+  display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 </style>
 </head>
@@ -128,8 +137,9 @@ let isFullscreen = false;
 let currentPdf = null;
 let currentPdfPage = null;
 let originalViewport = null;
-let currentDocType = null; // "pdf", "docx", "xlsx"
+let currentDocType = null;
 
+// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
@@ -139,35 +149,42 @@ function showError(msg){
 
 // Fullscreen Toggle
 fullscreenBtn.addEventListener('click', async ()=>{
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+
   if(!isFullscreen){
     viewerContainer.classList.add('fullscreen-mode');
+
     if(currentDocType==="pdf" && currentPdf && currentPdfPage){
-      // PDF Canvas auf Bildschirmgröße skalieren
-      pdfCanvas.width = window.innerWidth;
-      pdfCanvas.height = window.innerHeight;
       const viewport = currentPdfPage.getViewport({scale:1});
-      const scaleX = pdfCanvas.width / viewport.width;
-      const scaleY = pdfCanvas.height / viewport.height;
+      const scaleX = screenWidth / viewport.width;
+      const scaleY = screenHeight / viewport.height;
       const scale = Math.min(scaleX, scaleY);
       const scaledViewport = currentPdfPage.getViewport({scale: scale});
+
+      pdfCanvas.width = scaledViewport.width;
+      pdfCanvas.height = scaledViewport.height;
       await currentPdfPage.render({canvasContext: ctxPDF, viewport: scaledViewport}).promise;
+
     } else {
-      // Andere Dokumente: Container auf fullscreen
-      docOutput.style.width = window.innerWidth + "px";
-      docOutput.style.height = window.innerHeight + "px";
+      docOutput.style.width = screenWidth + "px";
+      docOutput.style.height = screenHeight + "px";
       docOutput.parentElement.style.overflow='auto';
     }
+
     isFullscreen = true;
   } else {
     viewerContainer.classList.remove('fullscreen-mode');
+
     if(currentDocType==="pdf" && currentPdf && currentPdfPage){
       pdfCanvas.width = originalViewport.width;
       pdfCanvas.height = originalViewport.height;
       await currentPdfPage.render({canvasContext: ctxPDF, viewport: originalViewport}).promise;
     } else {
-      docOutput.style.width = "100%";
+      docOutput.style.width = "90%";
       docOutput.style.height = "auto";
     }
+
     isFullscreen = false;
   }
 });
@@ -178,6 +195,12 @@ fileInput.addEventListener('change', async e=>{
   if(!file) return;
 
   viewerContainer.style.display='flex';
+  viewerContainer.style.width='90%';
+  viewerContainer.style.height='auto';
+  viewerContainer.style.maxHeight='80%';
+  viewerContainer.style.justifyContent='center';
+  viewerContainer.style.alignItems='center';
+
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
   fullscreenBtn.style.display='none';
@@ -195,16 +218,19 @@ fileInput.addEventListener('change', async e=>{
         currentPdfPage = page;
         const viewport = page.getViewport({scale:1.2});
         originalViewport = viewport;
+
         pdfCanvas.width = viewport.width;
         pdfCanvas.height = viewport.height;
         await page.render({canvasContext:ctxPDF,viewport}).promise;
         fullscreenBtn.style.display='flex';
+
       } else if(name.endsWith('.docx') || name.endsWith('.odt')){
         currentDocType="docx";
         docOutput.style.display='block';
         const result = await mammoth.extractRawText({arrayBuffer:reader.result});
         docOutput.textContent=result.value;
         fullscreenBtn.style.display='flex';
+
       } else if(name.endsWith('.xlsx') || name.endsWith('.ods')){
         currentDocType="xlsx";
         docOutput.style.display='block';
@@ -217,6 +243,7 @@ fileInput.addEventListener('change', async e=>{
           docOutput.appendChild(div);
         });
         fullscreenBtn.style.display='flex';
+
       } else if(name.endsWith('.pptx')){
         currentDocType="pptx";
         docOutput.style.display='block';
