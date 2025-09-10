@@ -47,16 +47,15 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   padding:0.8rem 1rem; border-radius:12px; font-size:1rem; cursor:pointer;
 }
 
-#fileName { color:white; font-size:1rem; }
-
 #fullscreenBtn {
-  width:40px; height:40px; border-radius:50%;
+  width:50px; height:50px; border-radius:50%;
   background:#0f0; color:black; border:none; cursor:pointer;
-  font-weight:bold; font-size:20px; display:flex; align-items:center; justify-content:center;
+  font-weight:bold; font-size:22px; display:flex; align-items:center; justify-content:center;
+  position:fixed; bottom:30px; right:30px; z-index:99999;
 }
 
 #errorBox {
-  position:absolute; bottom:70px; background: rgba(255,0,0,0.8);
+  position:absolute; bottom:90px; background: rgba(255,0,0,0.8);
   color:white; padding:0.4rem 0.8rem; border-radius:8px;
   display:none; font-size:0.8rem;
 }
@@ -67,12 +66,13 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
   max-width:none; max-height:none;
   border-radius:0;
   background: rgba(0,0,0,0.95);
-  z-index:9999;
+  z-index:9998;
   display:flex; justify-content:center; align-items:center; flex-direction:column;
 }
 
 #fullscreenContent {
-  width:95%; height:95%; display:flex; justify-content:center; align-items:center; flex-direction:column; overflow:auto;
+  width:100%; height:100%; display:flex; justify-content:center; align-items:center;
+  overflow:auto;
 }
 </style>
 </head>
@@ -88,9 +88,9 @@ canvas#matrixCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-
 
   <div id="uploadBar">
     <input type="file" id="fileInput" />
-    <span id="fileName"></span>
-    <button id="fullscreenBtn">⛶</button>
   </div>
+
+  <button id="fullscreenBtn">⛶</button>
 
   <div id="errorBox"></div>
 </div>
@@ -139,12 +139,10 @@ const docOutput = document.getElementById('docOutput');
 const ctxPDF = pdfCanvas.getContext('2d');
 const errorBox = document.getElementById('errorBox');
 const fullscreenBtn = document.getElementById('fullscreenBtn');
-const fileNameDisplay = document.getElementById('fileName');
 const viewerContainer = document.getElementById('viewerContainer');
 
 let isFullscreen = false;
 
-// Fehleranzeige
 function showError(msg){
   errorBox.style.display='block';
   errorBox.textContent=msg;
@@ -174,7 +172,6 @@ fullscreenBtn.addEventListener('click',()=>{
 fileInput.addEventListener('change', async e=>{
   const file = e.target.files[0];
   if(!file) return;
-  fileNameDisplay.textContent = file.name; // native Name in weiß
   viewerContainer.style.display='flex'; // Viewer aktivieren
   pdfCanvas.style.display='none';
   docOutput.style.display='none';
