@@ -1,0 +1,3 @@
+MATRIX TXT TEST
+Sonderzeichen: ä ö ü ß €
+Zeile 3

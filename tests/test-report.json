@@ -1,0 +1,152 @@
+{
+  "total": 29,
+  "passed": 29,
+  "failed": 0,
+  "results": [
+    {
+      "test": "Startbildschirm",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Alle Renderbibliotheken geladen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Upload 05_TXT_Umlaute.txt",
+      "ok": true,
+      "detail": "MATRIX TXT TEST\nSonderzeichen: ä ö ü ß €\nZeile 3\n"
+    },
+    {
+      "test": "Dateiname",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Zoom anheben",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Zoom zurücksetzen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Upload 06_CSV_Trennzeichen.csv",
+      "ok": true,
+      "detail": "Name\tWert\tNotiz\nAlpha\t1,25\tHallo; Welt\nBeta\t2,50\tTest"
+    },
+    {
+      "test": "Upload 07_JSON_Daten.json",
+      "ok": true,
+      "detail": "{\n  \"app\": \"Matrix Viewer\",\n  \"version\": 2,\n  \"valid\": true,\n  \"chars\": \"äöü\"\n}"
+    },
+    {
+      "test": "Upload 08_HTML_Sicherheitscheck.html",
+      "ok": true,
+      "detail": "<h1>HTML Quellcode</h1>\n<script>window.__injected_by_test=true</script>\n"
+    },
+    {
+      "test": "HTML wird nicht ausgeführt",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Upload 04_ODT_Text.odt",
+      "ok": true,
+      "detail": "ODT-Testüberschrift\n\nDies ist ein ODT-Test mit Umlauten: äöü.\n\nDer zweite Absatz soll sichtbar bleib"
+    },
+    {
+      "test": "Upload 02_DOCX_2_Seiten.docx",
+      "ok": true,
+      "detail": "DOCX Test – Erste Seite\n\nMatrix Viewer DOCX Testdatei. Umlaute: ä ö ü ß.\n\nFettdruck, Tabelle und Sei"
+    },
+    {
+      "test": "DOCX Layout oder Text vorhanden",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Upload 12_ODS_2_Spalten.ods",
+      "ok": true,
+      "detail": "ODS Test\n#\tA\tB\n1\tArtikel\tWert\n2\tODS-Alpha\t42"
+    },
+    {
+      "test": "Upload 11_XLSX_2_Tabellen.xlsx",
+      "ok": true,
+      "detail": "Daten\nZusammenfassung\n#\tA\tB\tC\n1\tName\tWert\tDatum\n2\tAlpha\t12.5\t2026-11-12\n3\tBeta\t19.75\t2026-11-13\n4\tGa"
+    },
+    {
+      "test": "XLSX Blattwahl vorhanden",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "XLSX zweites Blatt",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Upload 03_PPTX_3_Folien.pptx",
+      "ok": true,
+      "detail": "PPTX-Testfolie 1 / 3\nDer Text von Folie 1 muss sichtbar sein.\nFolie 1 von 3 · einfache Text-/Bildvor"
+    },
+    {
+      "test": "PPTX 3 Folien",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "PPTX Folienwechsel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "PPTX eingebettetes Bild",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "PDF Seite 1 Canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "PDF 3 Seiten",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "PDF Seite 2",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Schließen",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Ungültige PDF meldet Fehler",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Keine JS-Ausnahme",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Mobile Layout ohne horizontales Body-Scrolling",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "test": "Mobile PDF vorhanden",
+      "ok": true,
+      "detail": ""
+    }
+  ]
+}
