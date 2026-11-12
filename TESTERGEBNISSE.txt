@@ -1,37 +1,22 @@
-Matrix Document Viewer V2 – TESTERGEBNISSE
+IVY DOCS V3 – PRÜFPROTOKOLL
+Stand: 2026-11-12
 
-Browser-Funktionsprüfungen: 29/29 bestanden
-Service-Worker-Mocktests: 12/12 bestanden
-JavaScript-Syntax: app.js / service-worker.js geprüft
+Browser-Basistests (Chromium / Playwright): 29 / 29 bestanden
+Browser-Erweiterungstests Desktop + Smartphone: 46 / 46 bestanden
+Service-Worker-Tests mit Cache-/Netzwerk-Mocks: 12 / 12 bestanden
+Gesamtzahl der automatisierten Einzelprüfungen: 87 / 87 bestanden
 
-OK  Startbildschirm
-OK  Alle Renderbibliotheken geladen
-OK  Upload 05_TXT_Umlaute.txt
-OK  Dateiname
-OK  Zoom anheben
-OK  Zoom zurücksetzen
-OK  Upload 06_CSV_Trennzeichen.csv
-OK  Upload 07_JSON_Daten.json
-OK  Upload 08_HTML_Sicherheitscheck.html
-OK  HTML wird nicht ausgeführt
-OK  Upload 04_ODT_Text.odt
-OK  Upload 02_DOCX_2_Seiten.docx
-OK  DOCX Layout oder Text vorhanden
-OK  Upload 12_ODS_2_Spalten.ods
-OK  Upload 11_XLSX_2_Tabellen.xlsx
-OK  XLSX Blattwahl vorhanden
-OK  XLSX zweites Blatt
-OK  Upload 03_PPTX_3_Folien.pptx
-OK  PPTX 3 Folien
-OK  PPTX Folienwechsel
-OK  PPTX eingebettetes Bild
-OK  PDF Seite 1 Canvas
-OK  PDF 3 Seiten
-OK  PDF Seite 2
-OK  Schließen
-OK  Ungültige PDF meldet Fehler
-OK  Keine JS-Ausnahme
-OK  Mobile Layout ohne horizontales Body-Scrolling
-OK  Mobile PDF vorhanden
+Verifizierte Szenarien:
+- PDF mehrseitig, Seitenwechsel, Vergrößerung ~195 %, horizontale Scrollbreite
+- Scrollen bis zum maximalen rechten Rand bei Desktop- und Smartphone-Viewport
+- Zoom-Reduktion nach Scrollen, keine JavaScript-Ausnahmen
+- PPTX mit Text, Bild, Formen, Hintergrundfarben; ODP mit Folientext und Formen
+- DOCX, XLSX, ODS, ODT, TXT, CSV, JSON, HTML als sicherer Text
+- EPUB Kapitelwechsel und blockierte eingebettete Skripte
+- CBZ Comic-Seitenwechsel; Markdown, TSV, ICS, VCF, EML, RTF, SRT, FB2, Python-Code
+- Kein allgemeines horizontales Überlaufen der mobilen App-Oberfläche
+- SW: Offline HTML, PDF-Worker/DOCX-Library, network-first Updates
+- SW: kein Cache fremder PWAs, keine Interception privater Dateien, kein Drittanbieter-Fetch
 
-Hinweis: Echter HTTPS/Service-Worker-Offline-Start muss auf GitHub Pages geprüft werden.
+Einschränkungen: PPTX/ODP sind Browser-Vorschaurenderer, keine vollständige Office-Engine.
+Live-Offline-Installation und Touch-Pinch auf einem realen Android-/iOS-Gerät nicht durchgeführt.
