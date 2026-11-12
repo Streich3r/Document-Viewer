@@ -1,0 +1,37 @@
+Matrix Document Viewer V2 – TESTERGEBNISSE
+
+Browser-Funktionsprüfungen: 29/29 bestanden
+Service-Worker-Mocktests: 12/12 bestanden
+JavaScript-Syntax: app.js / service-worker.js geprüft
+
+OK  Startbildschirm
+OK  Alle Renderbibliotheken geladen
+OK  Upload 05_TXT_Umlaute.txt
+OK  Dateiname
+OK  Zoom anheben
+OK  Zoom zurücksetzen
+OK  Upload 06_CSV_Trennzeichen.csv
+OK  Upload 07_JSON_Daten.json
+OK  Upload 08_HTML_Sicherheitscheck.html
+OK  HTML wird nicht ausgeführt
+OK  Upload 04_ODT_Text.odt
+OK  Upload 02_DOCX_2_Seiten.docx
+OK  DOCX Layout oder Text vorhanden
+OK  Upload 12_ODS_2_Spalten.ods
+OK  Upload 11_XLSX_2_Tabellen.xlsx
+OK  XLSX Blattwahl vorhanden
+OK  XLSX zweites Blatt
+OK  Upload 03_PPTX_3_Folien.pptx
+OK  PPTX 3 Folien
+OK  PPTX Folienwechsel
+OK  PPTX eingebettetes Bild
+OK  PDF Seite 1 Canvas
+OK  PDF 3 Seiten
+OK  PDF Seite 2
+OK  Schließen
+OK  Ungültige PDF meldet Fehler
+OK  Keine JS-Ausnahme
+OK  Mobile Layout ohne horizontales Body-Scrolling
+OK  Mobile PDF vorhanden
+
+Hinweis: Echter HTTPS/Service-Worker-Offline-Start muss auf GitHub Pages geprüft werden.
